@@ -242,6 +242,7 @@ Execute-InSandbox "source ~/.bashrc" $Username
 Write-Ok "Bashrc changes applied"
 
 Write-Info "Index Projects"
+## TODO Fix this
 Execute-InSandbox "echo '$UserPassword' | sudo -S index-projects" $Username
 Write-Ok "Projects indexed"
 
