@@ -33,7 +33,7 @@ foreach ($file in $RequiredFiles) {
 
 ## -- Configuration values (edit sandbox-config.ps1) --------------------------------
 # Make sure temp directory exists
-$tempDir = Join-Path $PSScriptRoot "temp"
+$tempDir = Join-Path $PSScriptRoot "../temp"
 if (-not (Test-Path $tempDir)) {
     New-Item -ItemType Directory -Path $tempDir | Out-Null
 }
