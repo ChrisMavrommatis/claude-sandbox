@@ -3,7 +3,7 @@
 #
 # __PROJECTS_DRVFS__ and __NETVOLUTION6_DRVFS__ are replaced at install/apply
 # time by Install-ClaudeSandbox.ps1 / Apply-BashrcExtension.ps1.
-# Do not change these tokens — edit sandbox-config.ps1 to change the paths.
+# Do not change these tokens - edit sandbox-config.ps1 to change the paths.
 
 PROJECTS_DRVFS="__PROJECTS_DRVFS__"
 NETVOLUTION_DRVFS="__NETVOLUTION6_DRVFS__"
@@ -13,9 +13,9 @@ PROJECT_MOUNT="$HOME/current-project"
 NETVOLUTION_MOUNT="$HOME/netvolution6"
 PROJECTS_INDEX="$HOME/.cache/projects-index"
 
-# ── Project Indexer ───────────────────────────────────────────────────────────
+# === Project Indexer ================================================================
 # Scans PROJECTS_DRVFS and writes a list of project names to PROJECTS_INDEX.
-# Mount is temporary — unmounted immediately after scanning.
+# Mount is temporary - unmounted immediately after scanning.
 index-projects() {
     local already_mounted=false
     if mountpoint -q "$PROJECTS_LIST_MOUNT" 2>/dev/null; then
@@ -32,11 +32,11 @@ index-projects() {
     local count; count=$(wc -l < "$PROJECTS_INDEX")
     [[ "$already_mounted" == false ]] && sudo umount "$PROJECTS_LIST_MOUNT"
 
-    echo "Index updated — $count projects found:"
+    echo "Index updated - $count projects found:"
     sed 's/^/   /' "$PROJECTS_INDEX"
 }
 
-# ── Project Switcher ──────────────────────────────────────────────────────────
+# === Project Switcher ==============================================================
 # Unmounts the current project and mounts the selected one rw.
 # Netvolution6 is always kept mounted ro at NETVOLUTION_MOUNT.
 switch-project() {
@@ -77,7 +77,7 @@ switch-project() {
     echo "Mounting ${win_path} -> ${PROJECT_MOUNT}..."
     sudo mount -t drvfs "${win_path}" "$PROJECT_MOUNT" \
         -o uid=1000,gid=1000,umask=022,metadata \
-        || { echo "Mount failed — does ${PROJECTS_DRVFS}\\${project} exist?"; return 1; }
+        || { echo "Mount failed - does ${PROJECTS_DRVFS}\\${project} exist?"; return 1; }
 
     if ! mountpoint -q "$NETVOLUTION_MOUNT" 2>/dev/null; then
         echo "Mounting Netvolution6 (ro)..."
@@ -86,14 +86,14 @@ switch-project() {
             || echo "Warning: could not mount Netvolution6 reference"
     fi
 
-    cd "$PROJECT_MOUNT" || return 1
+    cd $PROJECT_MOUNT || return 1
     echo ""
     echo "Active project : $project"
     echo "  rw -> $PROJECT_MOUNT"
     echo "  ro -> $NETVOLUTION_MOUNT"
 }
 
-# ── Tab completion ────────────────────────────────────────────────────────────
+# === Tab completion ================================================================
 _switch_project_complete() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
     [[ -f "$PROJECTS_INDEX" ]] && \

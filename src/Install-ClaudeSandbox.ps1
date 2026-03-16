@@ -19,7 +19,7 @@
 $RequiredFiles = @(
     "sandbox-config.ps1",
     "wsl.conf",
-    "netvolution.sh"
+    "bashrc/netvolution.sh"
 )
 foreach ($file in $RequiredFiles) {
     if (-not (Test-Path (Join-Path $PSScriptRoot $file))) {
@@ -201,41 +201,55 @@ Write-Info "Installing Claude Code..."
 Execute-InSandbox "curl -fsSL https://claude.ai/install.sh | bash" $Username
 Write-Ok "Claude Code installed"
 
-# ### Write extensions to ~/.bashrc
-# Write-Step "Writing bashrc extensions..."
+### Add bashrc extensions for project switching and Netvolution6 access
+Write-Step "Step 4: Adding bashrc extensions for project switching and Netvolution6 access..."
 
 
-# $BashrcExtensions = @"
-# # -- Claude Sandbox bashrc extensions (added by Install-ClaudeSandbox.ps1) --
-# [ -f "$HOME/.bashrc.d/netvolution.sh" ] && source "$HOME/.bashrc.d/netvolution.sh"
+Write-Info "Writing netvolution.sh bashrc extension..."
+$netvolutionBashrcContent = (Get-Content "$PSScriptRoot\bashrc\netvolution.sh" -Raw) `
+    -replace "__PROJECTS_DRVFS__",    $ProjectsDrvfs `
+    -replace "__NETVOLUTION6_DRVFS__", $Netvolution6Drvfs `
+    -replace "`r`n", "`n"  # Ensure Unix line endings
+$netvolutionBashrcTempPath = Join-Path $tempDir "netvolution.sh"
+[System.IO.File]::WriteAllText($netvolutionBashrcTempPath, $netvolutionBashrcContent, (New-Object System.Text.UTF8Encoding $false))
+Copy-Item $netvolutionBashrcTempPath "\\wsl$\$DistroName\home\$Username\.bashrc.d\netvolution.sh"
+Check-ExitCode "Failed to copy netvolution.sh to sandbox." 
+Write-Ok "netvolution.sh bashrc extension deployed"
 
-# # uncomment to add multiple entries in bashrc
-# # if [ -d "$HOME/.bashrc.d" ]; then
-#     # for f in "$HOME/.bashrc.d"/*.sh; do
-#         # [ -f "$f" ] && source "$f"
-#     # done
-# # fi
-# "@
 
-# $BashrcExtensions | wsl -d $DistroName --user $Username -- bash -c "cat >> ~/.bashrc"
-# Check-ExitCode "Failed to write bashrc extensions."
-# Write-Ok "bashrc extensions written"
+Write-Info "Configuring .bashrc to source netvolution.sh..."
+$block = @'
+if [ -f "$HOME/.bashrc.d/netvolution.sh" ]; then
+    . "$HOME/.bashrc.d/netvolution.sh"
+fi
 
-# Write-Step "Copying helper scripts..."
+# uncomment to add multiple entries in bashrc
+# if [ -d "$HOME/.bashrc.d" ]; then
+#     for f in "$HOME/.bashrc.d"/*.sh; do
+#         [ -f "$f" ] && source "$f"
+#     done
+# fi
 
-# $NetvolutionContent = (Get-Content "$PSScriptRoot\netvolution.sh" -Raw) `
-#  -replace "__PROJECTS_DRVFS__",    $ProjectsDrvfs `
-#  -replace "__NETVOLUTION6_PATH__", $Netvolution6Path
+'@
 
-# $NetvolutionTempPath = Join-Path $tempDir "netvolution.sh"
-# [System.IO.File]::WriteAllText($NetvolutionTempPath, $NetvolutionContent, (New-Object System.Text.UTF8Encoding $false))
+$block = $block -replace "`r`n", "`n"  # Ensure Unix line endings
 
-# Copy-Item $NetvolutionTempPath "\\wsl$\$DistroName\home\$Username\.bashrc.d\netvolution.sh"
-# Check-ExitCode "Failed to copy netvolution.sh to sandbox."
-# Write-Ok "netvolution.sh deployed"
+Execute-InSandbox "echo '$block' >> ~/.bashrc" $Username
+Write-Ok ".bashrc configured to source netvolution.sh"
 
-## -- Step 4: Cleanup temp files ----------------------------------------------------------------
-Write-Step "Step 4: Cleaning up temporary files..."
+Write-Info "Applying bashrc changes..."
+Execute-InSandbox "source ~/.bashrc" $Username
+Write-Ok "Bashrc changes applied"
+
+Write-Info "Index Projects"
+Execute-InSandbox "echo '$UserPassword' | sudo -S index-projects" $Username
+Write-Ok "Projects indexed"
+
+Write-Ok "Step 4 complete: bashrc extensions added"
+
+
+## -- Step 5: Cleanup temp files ----------------------------------------------------------------
+Write-Step "Step 5: Cleaning up temporary files..."
 
 Write-Info "Removing temporary files..."
 Remove-Item (Join-Path $tempDir "wsl.conf")      -ErrorAction SilentlyContinue
