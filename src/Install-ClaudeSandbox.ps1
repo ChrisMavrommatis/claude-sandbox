@@ -57,12 +57,14 @@ Write-Host ""
 ## -- Prerequisites check ---------------------------------------------------------
 Write-Step "Checking prerequisites..."
 
+### Check if WSL is enabled
 if ((Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux).State -ne "Enabled") {
     Write-Host "  ERROR: WSL is not enabled. Please enable it and try again." -ForegroundColor Red
     exit 1
 }
 Write-Info "WSL feature enabled"
 
+### Check if Container Runtime is installed
 if(-not (Get-Command $ContainerRuntime -ErrorAction SilentlyContinue)) {
     Write-Host "  ERROR: $ContainerRuntime is not installed or not in PATH." -ForegroundColor Red
     exit 1
@@ -102,12 +104,16 @@ if (-not (Test-Path $TarPath)) {
 }
 Write-Ok "Container exported to $TarPath"
 
-
 ### Cleanup container
 Write-Info "Cleaning up container..."
 & $ContainerRuntime rm $ContainerId | Out-Null
+## Remove image 
+$imageId = & $ContainerRuntime images -q $DistroImage
+if ($imageId) {
+    Write-Info "Removing container image..."
+    & $ContainerRuntime rmi $imageId | Out-Null
+}
 Write-Ok "Container removed"
-
 
 ### Import tarball to WSL
 Write-Info "Importing '$DistroImage' as WSL distro '$DistroName'..."
@@ -161,6 +167,7 @@ Add-Content -Path "\\wsl$\$DistroName\home\$Username\.bashrc" `
             -Encoding UTF8
 Write-Ok "Directories and PATH configured"
 
+### Restart the distro to apply PATH changes
 Write-Info "Restarting distro to apply PATH changes..."
 wsl --terminate $DistroName
 Start-Sleep -Seconds 5
@@ -171,8 +178,8 @@ Write-Info "Creating .claude persistence directory..."
 Execute-InSandbox "mkdir -p ~/.claude" $Username
 Write-Ok ".claude directory created"
 
+### Write fstab entry to mount Windows folder as ~/.claude in the sandbox
 Write-Info "Configuring persistence directory mount in wsl.conf..."
-
 Execute-InSandbox "rm -f /tmp/claude-fstab.tmp" "root"
 $fstabDirLine = "$ClaudePersistenceDir /home/$Username/.claude drvfs uid=1000,gid=1000,umask=022,metadata 0 0`n"
 [System.IO.File]::WriteAllText(
@@ -183,10 +190,12 @@ $fstabDirLine = "$ClaudePersistenceDir /home/$Username/.claude drvfs uid=1000,gi
 Execute-InSandbox "cat /tmp/claude-fstab.tmp >> /etc/fstab && rm /tmp/claude-fstab.tmp" "root"
 Write-Ok "Persistence directory mount configured"
 
+### Create symlink for ~/.claude.json persistence file
 Write-Info "Creating symlink for ~/.claude.json persistence file..."
 Execute-InSandbox "ln -sf /home/$Username/.claude/.claude.json /home/$Username/.claude.json" $Username
 Write-Ok "Symlink for ~/.claude.json created"
 
+### Restart the distro to apply fstab changes
 Write-Info "Restarting distro to apply FSTAB changes..."
 wsl --terminate $DistroName
 Start-Sleep -Seconds 5
@@ -200,6 +209,7 @@ Write-Ok "Claude Code installed"
 ## -- Step 4: Cleanup temp files ----------------------------------------------------------------
 Write-Step "Step 4: Cleaning up temporary files..."
 
+### Remove temporary files
 Write-Info "Removing temporary files..."
 Remove-Item (Join-Path $tempDir "wsl.conf")      -ErrorAction SilentlyContinue
 Remove-Item $TarPath                              -ErrorAction SilentlyContinue
@@ -217,3 +227,4 @@ Write-Host "  Uninstall : wsl --unregister $DistroName" -ForegroundColor White
 Write-Host "==============================================================================="
 Write-Host ""
 
+## -- Next steps -----------------------------------------------------------------------

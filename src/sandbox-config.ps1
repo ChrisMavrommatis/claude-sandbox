@@ -11,7 +11,6 @@
 $ProjectsPath = "D:\Projects"   # Root folder containing your Windows projects
 $UserPassword = "changeme"      # Avoid single-quote characters in the password
 $ClaudePersistenceDir = "D:\.claude"  # Windows folder to be mounted as /.claude in the sandbox for persistent storage
-$ClaudePersistenceJson = "D:\.claude.json" # Windows file to be mounted as ~/.claude.json in the sandbox for persistent storage of Claude Code data and settings
 
 # -- Container runtime --------------------------------------------------------- 
 $ContainerRuntime = "podman"    # "podman" or "docker"
