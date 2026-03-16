@@ -3,6 +3,7 @@
 # Edit this file. 
 # The following files read it automatically.
 # - Install-ClaudeSandbox.ps1 
+# - Apply-BashrcExtensions.ps1
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # -- Paths & credentials --------------------------------------------------------
@@ -26,3 +27,5 @@ $Packages = @(
 $Username   = "atcomdev"
 $DistroName = "claude-sandbox-test"
 $DistroImage = "debian:bookworm-slim"
+
+
