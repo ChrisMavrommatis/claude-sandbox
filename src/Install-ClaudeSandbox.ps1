@@ -40,7 +40,6 @@ if (-not (Test-Path $tempDir)) {
     New-Item -ItemType Directory -Path $tempDir | Out-Null
 }
 
-$InstallDir = "$env:LOCALAPPDATA\WSL\$DistroName"
 $TarPath = Join-Path $tempDir "claude-sandbox.tar"
 
 $divider = "-" * 60
@@ -167,6 +166,32 @@ wsl --terminate $DistroName
 Start-Sleep -Seconds 5
 Write-Ok "Distro restarted"
 
+### Configure persistence directory and mount
+Write-Info "Creating .claude persistence directory..."
+Execute-InSandbox "mkdir -p ~/.claude" $Username
+Write-Ok ".claude directory created"
+
+Write-Info "Configuring persistence directory mount in wsl.conf..."
+
+Execute-InSandbox "rm -f /tmp/claude-fstab.tmp" "root"
+$fstabDirLine = "$ClaudePersistenceDir /home/$Username/.claude drvfs uid=1000,gid=1000,umask=022,metadata 0 0`n"
+[System.IO.File]::WriteAllText(
+    "\\wsl$\$DistroName\tmp\claude-fstab.tmp",
+    $fstabDirLine,
+    (New-Object System.Text.UTF8Encoding $false)
+)
+Execute-InSandbox "cat /tmp/claude-fstab.tmp >> /etc/fstab && rm /tmp/claude-fstab.tmp" "root"
+Write-Ok "Persistence directory mount configured"
+
+Write-Info "Creating symlink for ~/.claude.json persistence file..."
+Execute-InSandbox "ln -sf /home/$Username/.claude/.claude.json /home/$Username/.claude.json" $Username
+Write-Ok "Symlink for ~/.claude.json created"
+
+Write-Info "Restarting distro to apply FSTAB changes..."
+wsl --terminate $DistroName
+Start-Sleep -Seconds 5
+Write-Ok "Distro restarted"
+
 ### Install Claude Code
 Write-Info "Installing Claude Code..."
 Execute-InSandbox "curl -fsSL https://claude.ai/install.sh | bash" $Username
@@ -178,16 +203,8 @@ Write-Step "Step 4: Cleaning up temporary files..."
 Write-Info "Removing temporary files..."
 Remove-Item (Join-Path $tempDir "wsl.conf")      -ErrorAction SilentlyContinue
 Remove-Item $TarPath                              -ErrorAction SilentlyContinue
+Execute-InSandbox "rm -f /tmp/claude-fstab.tmp" "root"
 Write-Ok "Temporary files cleaned up"
-
-## -- Step 5: Add bashrc extensions ---------------------------------------------------------
-Write-Step "Step 5: Adding bashrc extensions..."
-# TODO: Deploy src/bashrc/default.sh as ~/.bashrc and netvolution.sh to ~/.bashrc.d/
-# Pending Apply-BashrcExtension.ps1 rewrite.
-Write-Info "Skipping bashrc extensions (not yet implemented)."
-
-
-
 
 ## -- Done -------------------------------------------------------------------------------
 Write-Host ""
@@ -196,5 +213,7 @@ Write-Host "  Installation complete!" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Launch   : wsl -d $DistroName" -ForegroundColor White
 Write-Host "  Run      : claude" -ForegroundColor White
+Write-Host "  Uninstall : wsl --unregister $DistroName" -ForegroundColor White
 Write-Host "==============================================================================="
 Write-Host ""
+
