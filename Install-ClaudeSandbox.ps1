@@ -48,11 +48,14 @@ $Netvolution6Drvfs = $Netvolution6Path.Replace("\", "\\")
 
 $divider = "-" * 60
 
+## -- Helper functions ---------------------------------------------------------
 function Write-Header {
     Write-Host ""
     Write-Host $divider -ForegroundColor DarkGray
-    Write-Host "  Claude Sandbox Installer" -ForegroundColor White
-    Write-Host "  Distro : $DistroName   User : $Username   Runtime : $ContainerRuntime" -ForegroundColor DarkGray
+    Write-Host "  Claude Sandbox Installer"     -ForegroundColor White
+    Write-Host "  Distro : $DistroName"         -ForegroundColor DarkGray
+    Write-Host "  User : $Username"             -ForegroundColor DarkGray   
+    Write-Host "  Runtime : $ContainerRuntime"  -ForegroundColor DarkGray
     Write-Host $divider -ForegroundColor DarkGray
     Write-Host ""
 }
@@ -79,6 +82,12 @@ function Check-ExitCode([string]$errorMessage) {
     }
 }
 
+function Execute-InSandbox([string]$command, [string]$user = $Username) {
+    wsl -d $DistroName --user $user -- bash -c $command
+    Check-ExitCode "Command '$command' failed in sandbox. Check the output above for details."
+}
+
+## -- Start of script -------------------------------------------------------------------
 Write-Header
 
 ## -- Prerequisites check ---------------------------------------------------------
@@ -96,62 +105,75 @@ if(-not (Get-Command $ContainerRuntime -ErrorAction SilentlyContinue)) {
 }
 Write-Info "$ContainerRuntime found"
 
-## -- Step 1: WSL  ------------------------------------------------------------------
-Write-Step "Configuring WSL default version..."
+Write-Ok "Prerequisites check passed"
 
+## -- Step 1: WSL  ------------------------------------------------------------------
+Write-Step "Step 1: Setting up WSL2 and creating distro..."
+
+### Install WSL2 if not already installed
+Write-Info "Installing WSL2 (if not already installed)..."
 wsl --install --no-distribution 2>$null
 wsl --set-default-version 2
-Write-Ok "WSL2 set as default"
+
+Write-Ok "Step 1 complete: WSL2 is set up"
 
 ## -- Step 2: Create WSL distro ------------------------------------------------------
-Write-Step "Building distro image from $DistroImage..."
-Write-Info "Creating container..."
+Write-Step "Step 2:Creating container image from $DistroImage..."
 
-$ContainerId = (& $ContainerRuntime create $DistroImage 2>&1).Trim()
+### Create container
+Write-Info "Creating container from '$DistroImage'..."
+$ContainerId = & $ContainerRuntime create $DistroImage
 if (-not $ContainerId) {
     Write-Host "  ERROR:Failed to create container. Check your container runtime." -ForegroundColor Red
     exit 1
 }
-Write-Info "Exporting to tarball (this may take a moment)..."
+Write-Ok "Container created with ID $ContainerId"
 
+### Export container to tarball
+Write-Info "Exporting to tarball..."
 & $ContainerRuntime export $ContainerId --output=$TarPath
 Start-Sleep -Seconds 5
 if (-not (Test-Path $TarPath)) {
     Write-Host "  ERROR:Failed to export container to tarball." -ForegroundColor Red
     exit 1
 }
+Write-Ok "Container exported to $TarPath"
 
+
+### Cleanup container
+Write-Info "Cleaning up container..."
 & $ContainerRuntime rm $ContainerId | Out-Null
-Write-Ok "Tarball created"
+Write-Ok "Container removed"
 
-Write-Step "Importing '$DistroName' into WSL2..."
+
+### Import tarball to WSL
+Write-Info "Importing '$DistroImage' as WSL distro '$DistroName'..."
 wsl --import $DistroName $InstallDir $TarPath --version 2
 Write-Ok "Distro imported to $InstallDir"
 
+
+Write-Ok "Step 2 complete: WSL distro '$DistroName' created from '$DistroImage'"
+
 ## -- Step 3: Configure the sandbox --------------------------------------------------
-### Run root setup script to install packages and create user
-Write-Step "Running root setup (packages + user creation)..."
-Write-Info "Installing: $($Packages -join ', ')"
+Write-Step "Step 3: Configuring the sandbox environment..."
 
-$RootSetupScript = @"
-apt-get update
-apt-get upgrade -y
-apt-get install -y $($Packages -join " ")
+### Install packages
+Write-Info "Installing Packages"
+Execute-InSandbox "apt-get update && apt-get upgrade -y && apt-get install -y $($Packages -join ' ')" "root"
+Write-Ok "Packages installed"
 
-useradd -m -s /bin/bash $Username
-printf '%s:%s\n' '$Username' '$UserPassword' | chpasswd
-usermod -aG sudo $Username
-"@
-
-($RootSetupScript -replace "`r`n", "`n") | wsl -d $DistroName --user root -- bash
-Check-ExitCode "Root setup script failed. Check the output above for details."
-Write-Ok "Packages installed, user '$Username' created"
+### Create user and set password
+Write-Info "Creating user '$Username'..."
+Execute-InSandbox "useradd -m -s /bin/bash $Username && printf '%s:%s\n' '$Username' '$UserPassword' | chpasswd && usermod -aG sudo $Username" "root"
+Write-Ok "User '$Username' created and added to sudo group"
 
 ### Write wsl.conf to set default user and other settings
-Write-Step "Writing wsl.conf..."
+Write-Info "Writing wsl.conf..."
 $wslConfContent = (Get-Content "$PSScriptRoot\wsl.conf" -Raw) `
     -replace "__DistroName__", $DistroName `
-    -replace "__Username__",   $Username
+    -replace "__Username__",   $Username `
+    -replace "`r`n", "`n"  # Ensure Unix line endings   
+    
 $wslConfTempPath = Join-Path $tempDir "wsl.conf"
 [System.IO.File]::WriteAllText($wslConfTempPath, $wslConfContent, (New-Object System.Text.UTF8Encoding $false))
 Copy-Item $wslConfTempPath "\\wsl$\$DistroName\etc\wsl.conf"
@@ -159,70 +181,75 @@ Check-ExitCode "Failed to write wsl.conf."
 Write-Ok "wsl.conf written"
 
 ### Restart the distro to apply wsl.conf changes
-Write-Step "Restarting distro to apply wsl.conf..."
+Write-Info "Restarting distro to apply wsl.conf..."
 wsl --terminate $DistroName
 Start-Sleep -Seconds 5
 Write-Ok "Distro restarted"
 
 ### Run user setup script
-Write-Step "Configuring user environment..."
-$UserSetupScript = @"
-mkdir -p ~/.bashrc.d
-mkdir -p ~/current-project
-mkdir -p ~/netvolution6
-mkdir -p ~/projects
+Write-Info "Configuring user environment..."
 
-echo 'export PATH="`$HOME/.local/bin:`$PATH"' >> ~/.bashrc
-"@
-
-($UserSetupScript -replace "`r`n", "`n") | wsl -d $DistroName --user $Username -- bash
-Check-ExitCode "User setup script failed. Check the output above for details."
+Execute-InSandbox "mkdir -p ~/.bashrc.d" $Username
+Execute-InSandbox "mkdir -p ~/current-project" $Username
+Execute-InSandbox "mkdir -p ~/netvolution6" $Username
+Execute-InSandbox "mkdir -p ~/projects" $Username
+Execute-InSandbox 'echo `export PATH="$HOME/.local/bin:$PATH"` >> ~/.bashrc' $Username
 Write-Ok "Directories and PATH configured"
 
 ### Install Claude Code
-Write-Step "Installing Claude Code..."
-wsl -d $DistroName --user $Username -- bash -c "curl -fsSL https://claude.ai/install.sh | bash"
-Check-ExitCode "Claude Code installation failed. Check the output above for details."
+Write-Info "Installing Claude Code..."
+Execute-InSandbox "curl -fsSL https://claude.ai/install.sh | bash" $Username
 Write-Ok "Claude Code installed"
 
-### Write extensions to ~/.bashrc
-Write-Step "Writing bashrc extensions..."
-$BashrcExtensions = @"
-# -- Claude Sandbox bashrc extensions (added by Install-ClaudeSandbox.ps1) --
-[ -f "$HOME/.bashrc.d/netvolution.sh" ] && source "$HOME/.bashrc.d/netvolution.sh"
+# ### Write extensions to ~/.bashrc
+# Write-Step "Writing bashrc extensions..."
 
-# uncomment to add multiple entries in bashrc
-# if [ -d "$HOME/.bashrc.d" ]; then
-    # for f in "$HOME/.bashrc.d"/*.sh; do
-        # [ -f "$f" ] && source "$f"
-    # done
-# fi
-"@
 
-$BashrcExtensions | wsl -d $DistroName --user $Username -- bash -c "cat >> ~/.bashrc"
-Check-ExitCode "Failed to write bashrc extensions."
-Write-Ok "bashrc extensions written"
+# $BashrcExtensions = @"
+# # -- Claude Sandbox bashrc extensions (added by Install-ClaudeSandbox.ps1) --
+# [ -f "$HOME/.bashrc.d/netvolution.sh" ] && source "$HOME/.bashrc.d/netvolution.sh"
 
-Write-Step "Copying helper scripts..."
+# # uncomment to add multiple entries in bashrc
+# # if [ -d "$HOME/.bashrc.d" ]; then
+#     # for f in "$HOME/.bashrc.d"/*.sh; do
+#         # [ -f "$f" ] && source "$f"
+#     # done
+# # fi
+# "@
 
-$NetvolutionContent = (Get-Content "$PSScriptRoot\netvolution.sh" -Raw)
-$NetvolutionContent = $NetvolutionContent.Replace("__PROJECTS_DRVFS__",    $ProjectsDrvfs)
-$NetvolutionContent = $NetvolutionContent.Replace("__NETVOLUTION6_DRVFS__", $Netvolution6Drvfs)
+# $BashrcExtensions | wsl -d $DistroName --user $Username -- bash -c "cat >> ~/.bashrc"
+# Check-ExitCode "Failed to write bashrc extensions."
+# Write-Ok "bashrc extensions written"
 
-$NetvolutionTempPath = Join-Path $tempDir "netvolution.sh"
-[System.IO.File]::WriteAllText($NetvolutionTempPath, $NetvolutionContent, (New-Object System.Text.UTF8Encoding $false))
+# Write-Step "Copying helper scripts..."
 
-Copy-Item $NetvolutionTempPath "\\wsl$\$DistroName\home\$Username\.bashrc.d\netvolution.sh"
-Check-ExitCode "Failed to copy netvolution.sh to sandbox."
-Write-Ok "netvolution.sh deployed"
+# $NetvolutionContent = (Get-Content "$PSScriptRoot\netvolution.sh" -Raw) `
+#  -replace "__PROJECTS_DRVFS__",    $ProjectsDrvfs `
+#  -replace "__NETVOLUTION6_PATH__", $Netvolution6Path
+
+# $NetvolutionTempPath = Join-Path $tempDir "netvolution.sh"
+# [System.IO.File]::WriteAllText($NetvolutionTempPath, $NetvolutionContent, (New-Object System.Text.UTF8Encoding $false))
+
+# Copy-Item $NetvolutionTempPath "\\wsl$\$DistroName\home\$Username\.bashrc.d\netvolution.sh"
+# Check-ExitCode "Failed to copy netvolution.sh to sandbox."
+# Write-Ok "netvolution.sh deployed"
+
+## -- Step 4: Cleanup temp files ----------------------------------------------------------------
+Write-Step "Step 4: Cleaning up temporary files..."
+
+Write-Info "Removing temporary files..."
+Remove-Item (Join-Path $tempDir "wsl.conf")      -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $tempDir "netvolution.sh") -ErrorAction SilentlyContinue
+Remove-Item $TarPath                              -ErrorAction SilentlyContinue
+Write-Ok "Temporary files cleaned up"
 
 ## -- Done -------------------------------------------------------------------------------
 Write-Host ""
-Write-Host $divider -ForegroundColor DarkGray
+Write-Host "==============================================================================="
 Write-Host "  Installation complete!" -ForegroundColor Green
-Write-Host $divider -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "  Launch   : wsl -d $DistroName" -ForegroundColor White
 Write-Host "  Run      : claude" -ForegroundColor White
 Write-Host "  Projects : switch-project" -ForegroundColor White
+Write-Host "==============================================================================="
 Write-Host ""
