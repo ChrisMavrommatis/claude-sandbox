@@ -132,6 +132,7 @@ Write-Ok "Distro imported to $InstallDir"
 ### Run root setup script to install packages and create user
 Write-Step "Running root setup (packages + user creation)..."
 Write-Info "Installing: $($Packages -join ', ')"
+
 $RootSetupScript = @"
 apt-get update
 apt-get upgrade -y
@@ -141,10 +142,12 @@ useradd -m -s /bin/bash $Username
 printf '%s:%s\n' '$Username' '$UserPassword' | chpasswd
 usermod -aG sudo $Username
 "@
+
 ($RootSetupScript -replace "`r`n", "`n") | wsl -d $DistroName --user root -- bash
 Check-ExitCode "Root setup script failed. Check the output above for details."
 Write-Ok "Packages installed, user '$Username' created"
 
+### Write wsl.conf to set default user and other settings
 Write-Step "Writing wsl.conf..."
 $wslConfContent = (Get-Content "$PSScriptRoot\wsl.conf" -Raw) `
     -replace "__DistroName__", $DistroName `
@@ -155,6 +158,7 @@ Copy-Item $wslConfTempPath "\\wsl$\$DistroName\etc\wsl.conf"
 Check-ExitCode "Failed to write wsl.conf."
 Write-Ok "wsl.conf written"
 
+### Restart the distro to apply wsl.conf changes
 Write-Step "Restarting distro to apply wsl.conf..."
 wsl --terminate $DistroName
 Start-Sleep -Seconds 5
@@ -175,6 +179,7 @@ echo 'export PATH="`$HOME/.local/bin:`$PATH"' >> ~/.bashrc
 Check-ExitCode "User setup script failed. Check the output above for details."
 Write-Ok "Directories and PATH configured"
 
+### Install Claude Code
 Write-Step "Installing Claude Code..."
 wsl -d $DistroName --user $Username -- bash -c "curl -fsSL https://claude.ai/install.sh | bash"
 Check-ExitCode "Claude Code installation failed. Check the output above for details."
