@@ -33,7 +33,7 @@ foreach ($file in $RequiredFiles) {
 
 ## -- Configuration values (edit sandbox-config.ps1) --------------------------------
 $InstallDir = "$env:LOCALAPPDATA\WSL\$DistroName"
-$TarPath = "C:\temp\claude-sandbox.tar"
+$TarPath = "$PSScriptRoot\temp\claude-sandbox.tar"
 
 $Netvolution6Path  = Join-Path $ProjectsPath "Netvolution6"
 $ProjectsDrvfs     = $ProjectsPath.Replace("\", "\\")
@@ -41,6 +41,13 @@ $Netvolution6Drvfs = $Netvolution6Path.Replace("\", "\\")
 
 function Write-Step([string]$msg) {
     Write-Host "`n==> $msg" -ForegroundColor Cyan
+}
+
+function Check-ExitCode([string]$errorMessage) {
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error $errorMessage
+        exit 1
+    }
 }
 
 ## -- Prerequisites check ---------------------------------------------------------
@@ -108,10 +115,7 @@ echo 'Setting up /etc/wsl.conf...'
 echo "$wslConfContent" > /etc/wsl.conf
 "@
 $RootSetupScript | wsl -d $DistroName --user root -- bash
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Failed to run root setup script. Please check the output above for details."
-    exit 1
-}
+Check-ExitCode "Failed to run root setup script. Please check the output above for details."
 
 
 Write-Step "Restarting distro (applying wsl.conf)..."
@@ -131,18 +135,42 @@ echo 'export PATH="`$HOME/.local/bin:`$PATH"' >> ~/.bashrc && source ~/.bashrc
 "@
 
 $UserSetupScript | wsl -d $DistroName --user $Username -- bash
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Failed to run user setup script. Please check the output above for details."
-    exit 1
-}
+Check-ExitCode "Failed to run user setup script. Please check the output above for details."
 
 Write-Step "Installing Claude Code inside the sandbox..."
 "curl -fsSL https://claude.ai/install.sh | bash" | wsl -d $DistroName --user $Username -- bash
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Failed to install Claude Code. Please check the output above for details."
-    exit 1
-}
+Check-ExitCode "Failed to install Claude Code. Please check the output above for details."
 
+### Write extensions to ~/.bashrc
+$BashrcExtensions = @"
+# -- Claude Sandbox bashrc extensions (added by Install-ClaudeSandbox.ps1) --
+[ -f "$HOME/.bashrc.d/netvolution.sh" ] && source "$HOME/.bashrc.d/netvolution.sh"
 
+# uncomment to add multiple entries in bashrc 
+# if [ -d "$HOME/.bashrc.d" ]; then
+    # for f in "$HOME/.bashrc.d"/*.sh; do
+        # [ -f "$f" ] && source "$f"
+    # done
+# fi
+"@
 
+$BashrcExtensions | wsl -d $DistroName --user $Username -- bash -c "cat >> ~/.bashrc"
+Check-ExitCode "Failed to write bashrc extensions. Please check the output above for details."
 
+Write-Step "Copying netvolution.sh helper script to sandbox..."
+
+$NetvolutionContent = (Get-Content "$PSScriptRoot\netvolution.sh" -Raw) `
+    .Replace("__PROJECTS_DRVFS__",    $ProjectsDrvfs) `
+    .Replace("__NETVOLUTION6_DRVFS__", $Netvolution6Drvfs)
+
+[System.IO.File]::WriteAllText("$PSScriptRoot\temp\netvolution.sh", $NetvolutionContent, (New-Object System.Text.UTF8Encoding $false))
+
+Copy-Item "$PSScriptRoot\temp\netvolution.sh" "\\wsl$\$DistroName\home\$Username\.bashrc.d\netvolution.sh"
+Check-ExitCode "Failed to copy netvolution.sh to sandbox. Please check the output above for details."
+
+## -- Done -------------------------------------------------------------------------------
+Write-Host "`nInstallation complete! You can now launch the sandbox with 'wsl -d $DistroName'." -ForegroundColor Green
+Write-Host "To start using Claude Code, run 'claude' inside the sandbox." -ForegroundColor Green
+Write-Host "To switch projects, run 'switch-project' inside the sandbox." -ForegroundColor Green
+Write-Host ""
+Write-Host "Enjoy your new Claude Code sandbox environment!" -ForegroundColor Green
