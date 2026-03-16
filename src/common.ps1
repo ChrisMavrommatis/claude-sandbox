@@ -17,9 +17,10 @@ function Write-Info([string]$msg) {
 
 function Check-ExitCode([string]$errorMessage) {
     if ($LASTEXITCODE -ne 0) {
+        $sep = if ($divider) { $divider } else { "-" * 60 }
         Write-Host ""
         Write-Host "  ERROR: $errorMessage" -ForegroundColor Red
-        Write-Host $divider -ForegroundColor DarkGray
+        Write-Host $sep -ForegroundColor DarkGray
         exit 1
     }
 }

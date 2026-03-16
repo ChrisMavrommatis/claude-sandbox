@@ -8,6 +8,13 @@
     Run from an elevated PowerShell prompt (or normal if WSL doesn't need sudo).
 #>
 
+# -- Ensure script is running with Administrator privileges ----------------------------
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Error "This script must be run as Administrator. Right-click PowerShell and select 'Run as Administrator'."
+    exit 1
+}
+
+
 # -- Ensure required files are present ------------------------------------------------
 $RequiredFiles = @(
     "common.ps1",
