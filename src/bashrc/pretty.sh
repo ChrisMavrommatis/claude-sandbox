@@ -98,3 +98,13 @@ if [ -f /opt/etc/bash_completion ] && ! shopt -oq posix; then
 fi
 
 export PATH="$HOME/.local/bin:$PATH"
+
+# Add workflow in bashrc
+[ -f "$HOME/.bashrc.d/workflow.sh" ] && source "$HOME/.bashrc.d/workflow.sh"
+
+# uncomment to add multiple entries in bashrc
+# if [ -d "$HOME/.bashrc.d" ]; then
+#     for f in "$HOME/.bashrc.d"/*.sh; do
+#         [ -f "$f" ] && source "$f"
+#     done
+# fi

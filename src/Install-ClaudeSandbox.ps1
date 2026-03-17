@@ -206,6 +206,12 @@ Write-Info "Installing Claude Code..."
 Execute-InSandbox "curl -fsSL https://claude.ai/install.sh | bash" $Username
 Write-Ok "Claude Code installed"
 
+### Create Necessary Directories
+Write-Info "Creating projects and .bashrc.d directories..."
+Execute-InSandbox "mkdir -p /home/$Username/projects" $Username
+Execute-InSandbox "mkdir -p /home/$Username/.bashrc.d" $Username
+Write-Ok "Directories created"
+
 ## -- Step 4: Cleanup temp files ----------------------------------------------------------------
 Write-Step "Step 4: Cleaning up temporary files..."
 

@@ -114,8 +114,8 @@ fi
 
 export PATH="$HOME/.local/bin:$PATH"
 
-# Add Netvolution in bashrc
-[ -f "$HOME/.bashrc.d/netvolution.sh" ] && source "$HOME/.bashrc.d/netvolution.sh"
+# Add workflow in bashrc
+[ -f "$HOME/.bashrc.d/workflow.sh" ] && source "$HOME/.bashrc.d/workflow.sh"
 
 # uncomment to add multiple entries in bashrc
 # if [ -d "$HOME/.bashrc.d" ]; then

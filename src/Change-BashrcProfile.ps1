@@ -1,9 +1,9 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Changes the active bashrc profile in WSL.
+    Changes the active bashrc profile in claude-sandbox.
 .DESCRIPTION
-    Use this script to change the active bashrc profile in WSL without needing a full reinstall.
+    Use this script to change the active bashrc profile in claude-sandbox without needing a full reinstall.
     Copies the selected profile to ~/.bashrc, then tells you to re-source.
     Run from an elevated PowerShell prompt (or normal if WSL doesn't need sudo).
 #>
@@ -46,24 +46,28 @@ Write-Host ""
 ## -- Select and apply bashrc profile -----------------------------------------------
 Write-Step "Select bashrc profile..."
 
+### Test for bashrc folder
 $BashrcSourceDir = Join-Path $PSScriptRoot "bashrc"
 if (-not (Test-Path $BashrcSourceDir)) {
     Write-Error "Bashrc source directory '$BashrcSourceDir' not found."
     exit 1
 }
 
+### Get bashrc profile files
 $BashrcFiles = Get-ChildItem -Path $BashrcSourceDir -Filter "*.sh" -File
 if ($BashrcFiles.Count -eq 0) {
     Write-Error "No bashrc profile files found in '$BashrcSourceDir'."
     exit 1
 }
 
+### List profiles
 Write-Info "Found $($BashrcFiles.Count) profile(s):"
 for ($i = 0; $i -lt $BashrcFiles.Count; $i++) {
     Write-Host "  [$($i+1)] $($BashrcFiles[$i].Name)" -ForegroundColor Gray
 }
 Write-Host ""
 
+### Select profile
 $index = 0
 do {
     $raw = Read-Host "Select a profile (1-$($BashrcFiles.Count))"
@@ -76,6 +80,7 @@ do {
 $selectedFile = $BashrcFiles[$index - 1]
 Write-Ok "Selected: $($selectedFile.Name)"
 
+### -- Write selected profile to ~/.bashrc ------------------------------------------------
 Write-Info "Writing $($selectedFile.Name) to ~/.bashrc..."
 $content = (Get-Content $selectedFile.FullName -Raw -Encoding UTF8) -replace "`r`n", "`n"
 [System.IO.File]::WriteAllText(
