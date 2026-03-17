@@ -118,3 +118,20 @@ _projects_complete() {
         COMPREPLY=($(compgen -W "$(cat "$PROJECTS_INDEX")" -- "$cur"))
 }
 complete -F _projects_complete mount-project unmount-project switch-project 
+
+# === Welcome Message ==================================================================
+_welcome() {
+    local claude_ver; claude_ver=$(claude --version 2>/dev/null || echo "unknown")
+
+    echo ""
+    echo   "  ┌─────────────────────────────────────────┐"
+    printf "  │  %-41s│\n" "Claude Sandbox · $(hostname)"
+    printf "  │  %-41s│\n" "Claude  : $claude_ver"
+    printf "  │  %-41s│\n" "User    : $(whoami)"
+    echo   "  ├─────────────────────────────────────────┤"
+    printf "  │  %-41s│\n" "Run: index-projects, then switch-project <n>"
+    echo   "  └─────────────────────────────────────────┘"
+    echo   "  Commands: mount-project  unmount-project  switch-project  index-projects"
+    echo ""
+}
+_welcome
