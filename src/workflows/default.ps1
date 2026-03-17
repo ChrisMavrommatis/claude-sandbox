@@ -23,6 +23,8 @@ $WorkflowContent = (Get-Content $WorkflowSourcePath -Raw) `
     -replace "__PROJECTS_DRVFS__", $ProjectsPath.Replace("\", "\\") `
     -replace "`r`n", "`n"  # Ensure Unix line endings
 $WorkflowTempPath = Join-Path $tempDir "workflow.sh"
+
+Ensure-DirectoryExists $tempDir
 [System.IO.File]::WriteAllText($WorkflowTempPath, $WorkflowContent, (New-Object System.Text.UTF8Encoding $false))
 
 $WorkflowDestPath = "\\wsl$\$DistroName\home\$Username\.bashrc.d\workflow.sh"

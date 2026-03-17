@@ -32,3 +32,16 @@ function Execute-InSandbox([string]$command, [string]$user = $Username) {
     wsl -d $DistroName --user $user -- bash -c $command
     Check-ExitCode "Command '$command' failed in sandbox. Check the output above for details."
 }
+
+function Ensure-DirectoryExists([string]$path) {
+   if (-not (Test-Path $path)) {
+       New-Item -ItemType Directory -Path $path | Out-Null
+   }
+}
+
+function Check-DirectoryExistsOrExit([string]$path) {
+    if (-not (Test-Path $path)) {
+        Write-Host "  ERROR: Directory '$path' does not exist." -ForegroundColor Red
+        exit 1
+    }
+}

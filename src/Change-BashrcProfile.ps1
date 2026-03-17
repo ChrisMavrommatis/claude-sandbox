@@ -48,10 +48,7 @@ Write-Step "Select bashrc profile..."
 
 ### Test for bashrc folder
 $BashrcSourceDir = Join-Path $PSScriptRoot "bashrc"
-if (-not (Test-Path $BashrcSourceDir)) {
-    Write-Error "Bashrc source directory '$BashrcSourceDir' not found."
-    exit 1
-}
+Check-DirectoryExistsOrExit $BashrcSourceDir
 
 ### Get bashrc profile files
 $BashrcFiles = Get-ChildItem -Path $BashrcSourceDir -Filter "*.sh" -File

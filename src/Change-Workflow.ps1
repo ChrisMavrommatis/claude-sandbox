@@ -48,10 +48,7 @@ Write-Step "Select workflow profile..."
 
 ### Test for workflow folder 
 $WorkflowSourceDir = Join-Path $PSScriptRoot "workflows"
-if (-not (Test-Path $WorkflowSourceDir)) {
-    Write-Error "Workflow source directory '$WorkflowSourceDir' not found."
-    exit 1
-}
+Check-DirectoryExistsOrExit $WorkflowSourceDir
 
 ### Get workflow files
 $WorkflowFiles = Get-ChildItem -Path $WorkflowSourceDir -Filter "*.ps1" -File

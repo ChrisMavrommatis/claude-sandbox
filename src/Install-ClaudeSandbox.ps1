@@ -36,9 +36,7 @@ foreach ($file in $RequiredFiles) {
 ## -- Configuration values (edit sandbox-config.ps1) --------------------------------
 # Make sure temp directory exists
 $tempDir = Join-Path $PSScriptRoot "../temp"
-if (-not (Test-Path $tempDir)) {
-    New-Item -ItemType Directory -Path $tempDir | Out-Null
-}
+Ensure-DirectoryExists $tempDir
 
 $TarPath = Join-Path $tempDir "claude-sandbox.tar"
 
@@ -117,6 +115,7 @@ Write-Ok "Container removed"
 
 ### Import tarball to WSL
 Write-Info "Importing '$DistroImage' as WSL distro '$DistroName'..."
+Ensure-DirectoryExists $InstallDir
 wsl --import $DistroName $InstallDir $TarPath --version 2
 Write-Ok "Distro imported to $InstallDir"
 
