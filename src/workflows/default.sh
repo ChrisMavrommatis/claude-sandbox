@@ -122,16 +122,35 @@ complete -F _projects_complete mount-project unmount-project switch-project
 # === Welcome Message ==================================================================
 _welcome() {
     local claude_ver; claude_ver=$(claude --version 2>/dev/null || echo "unknown")
+    local G='\033[1;32m'  # bold green
+    local C='\033[1;36m'  # bold cyan
+    local D='\033[2m'     # dim
+    local N='\033[0m'     # reset
 
     echo ""
-    echo   "  ┌─────────────────────────────────────────┐"
-    printf "  │  %-41s│\n" "Claude Sandbox · $(hostname)"
-    printf "  │  %-41s│\n" "Claude  : $claude_ver"
-    printf "  │  %-41s│\n" "User    : $(whoami)"
-    echo   "  ├─────────────────────────────────────────┤"
-    printf "  │  %-41s│\n" "Run: index-projects, then switch-project <n>"
-    echo   "  └─────────────────────────────────────────┘"
-    echo   "  Commands: mount-project  unmount-project  switch-project  index-projects"
+    printf "${G}"
+    cat << 'BANNER'
+ __      _____ _    ___ ___  __  __ ___ 
+ \ \    / / __| |  / __/ _ \|  \/  | __|
+  \ \/\/ /| _|| |_| (_| (_) | |\/| | _| 
+   \_/\_/ |___|____\___\___/|_|  |_|___|
+
+BANNER
+    printf "${N}"
+    printf "  ${D}Claude Sandbox  |  $(whoami)@$(hostname)  |  Claude $claude_ver${N}\n"
+    echo ""
+    printf "  ${C}Project${N}\n"
+    printf "    index-projects              Scan and index Windows projects\n"
+    printf "    switch-project <name>       Mount + cd into a project (RW)\n"
+    printf "    mount-project <name> --rw   Mount read-write\n"
+    printf "    mount-project <name> --ro   Mount read-only\n"
+    printf "    unmount-project <name>      Unmount a project\n"
+    echo ""
+    printf "  ${C}Claude${N}\n"
+    printf "    claude                                            Interactive\n"
+    printf "    claude --dangerously-skip-permissions             No prompts\n"
+    printf "    claude --sandbox                                  Sandboxed\n"
+    printf "    claude --sandbox --dangerously-skip-permissions   Sandboxed, no prompts\n"
     echo ""
 }
 _welcome

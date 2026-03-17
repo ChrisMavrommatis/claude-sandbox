@@ -27,7 +27,7 @@ $Packages = @(
 
 # -- Distro settings (unlikely to need changing) ------------------------------
 $Username   = "atcomdev"
-$DistroName = "claude-sandbox-test"
+$DistroName = "claude-sandbox"
 $DistroImage = "debian:bookworm-slim"
 $InstallDir = "D:\WSL\$DistroName"
 
