@@ -20,7 +20,9 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 $RequiredFiles = @(
     "common.ps1",
     "sandbox-config.ps1",
-    "wsl.conf"
+    "wsl.conf",
+    "profiles\default.sh",
+    "workflows\default.sh"
 )
 foreach ($file in $RequiredFiles) {
     if (-not (Test-Path (Join-Path $PSScriptRoot $file))) {
@@ -211,15 +213,43 @@ Execute-InSandbox "mkdir -p /home/$Username/projects" $Username
 Execute-InSandbox "mkdir -p /home/$Username/.bashrc.d" $Username
 Write-Ok "Directories created"
 
-## -- Step 4: Cleanup temp files ----------------------------------------------------------------
-Write-Step "Step 4: Cleaning up temporary files..."
+## -- Step 4: Add Default Profile and Workflow -------------------------------------------------
+Write-Step "Adding default bashrc profile and workflow..."
+
+### Add default bashrc profile
+Write-Info "Adding default bashrc profile..."
+$profileContent = (Get-Content "$PSScriptRoot\profiles\default.sh" -Raw -Encoding UTF8) -replace "`r`n", "`n"
+[System.IO.File]::WriteAllText(
+    "\\wsl$\$DistroName\home\$Username\.bashrc",
+    $profileContent,
+    (New-Object System.Text.UTF8Encoding $false)
+)
+Write-Ok "Default bashrc profile added"
+
+### Add default workflow profile
+Write-Info "Adding default workflow profile..."
+$workflowContent = (Get-Content "$PSScriptRoot\workflows\default.sh" -Raw -Encoding UTF8) `
+    -replace "__PROJECTS_DRVFS__", $ProjectsPath.Replace("\", "\\") `
+    -replace "`r`n", "`n"  # Ensure Unix line endings
+
+[System.IO.File]::WriteAllText(
+    "\\wsl$\$DistroName\home\$Username\.bashrc.d\workflow.sh",
+    $workflowContent,
+    (New-Object System.Text.UTF8Encoding $false)
+)
+Write-Ok "Default workflow profile added"
+
+
+## -- Step 5: Cleanup temp files ----------------------------------------------------------------
+Write-Step "Step 5: Cleaning up temporary files..."
 
 ### Remove temporary files
 Write-Info "Removing temporary files..."
-Remove-Item (Join-Path $tempDir "wsl.conf")      -ErrorAction SilentlyContinue
-Remove-Item $TarPath                              -ErrorAction SilentlyContinue
+### Remote tempDir and contents
+Remove-Item $tempDir -Recurse -ErrorAction SilentlyContinue
 Execute-InSandbox "rm -f /tmp/claude-fstab.tmp" "root"
 Write-Ok "Temporary files cleaned up"
+
 
 ## -- Done -------------------------------------------------------------------------------
 Write-Host ""

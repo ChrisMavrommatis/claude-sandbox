@@ -51,7 +51,7 @@ $WorkflowSourceDir = Join-Path $PSScriptRoot "workflows"
 Check-DirectoryExistsOrExit $WorkflowSourceDir
 
 ### Get workflow files
-$WorkflowFiles = Get-ChildItem -Path $WorkflowSourceDir -Filter "*.ps1" -File
+$WorkflowFiles = Get-ChildItem -Path $WorkflowSourceDir -Filter "*.sh" -File
 if ($WorkflowFiles.Count -eq 0) {
     Write-Error "No workflow files found in '$WorkflowSourceDir'."
     exit 1
@@ -75,10 +75,28 @@ do{
 }
 while(-not $valid)
 
-### Execute Workflow
+
 $selectedWorkflow = $WorkflowFiles[$index - 1]
 Write-Info "Selected workflow : $($selectedWorkflow.Name)"
 
-& $selectedWorkflow.FullName
-Check-ExitCode "Failed to execute workflow '$($selectedWorkflow.Name)'."
+### Ensure Projects folder exists in sandbox
+Write-Info "Ensuring Projects folder exists in sandbox..."
+Execute-InSandbox "mkdir -p /home/$Username/projects" $Username
+Execute-InSandbox "mkdir -p /home/$Username/.bashrc.d" $Username
+Write-Ok "Projects folder exists in sandbox"
+
+### --- Write selected workflow to ~/.bashrc.d/workflow.sh in the sandbox ------------------------------------------------
+Write-Info "Deploying $($selectedWorkflow.Name) profile to sandbox..."
+
+$content = (Get-Content $selectedWorkflow.FullName -Raw -Encoding UTF8) `
+    -replace "__PROJECTS_DRVFS__", $ProjectsPath.Replace("\", "\\") `
+    -replace "`r`n", "`n"  # Ensure Unix line endings
+
+[System.IO.File]::WriteAllText(
+    "\\wsl$\$DistroName\home\$Username\.bashrc.d\workflow.sh",
+    $content,
+    (New-Object System.Text.UTF8Encoding $false)
+)
+
+Write-Ok "Deployed $($selectedWorkflow.Name) profile to sandbox"
 

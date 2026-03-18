@@ -46,36 +46,36 @@ Write-Host ""
 ## -- Select and apply bashrc profile -----------------------------------------------
 Write-Step "Select bashrc profile..."
 
-### Test for bashrc folder
-$BashrcSourceDir = Join-Path $PSScriptRoot "bashrc"
-Check-DirectoryExistsOrExit $BashrcSourceDir
+### Test for profiles folder
+$profilesSourceDir = Join-Path $PSScriptRoot "profiles"
+Check-DirectoryExistsOrExit $profilesSourceDir
 
 ### Get bashrc profile files
-$BashrcFiles = Get-ChildItem -Path $BashrcSourceDir -Filter "*.sh" -File
-if ($BashrcFiles.Count -eq 0) {
-    Write-Error "No bashrc profile files found in '$BashrcSourceDir'."
+$profileFiles = Get-ChildItem -Path $profilesSourceDir -Filter "*.sh" -File
+if ($profileFiles.Count -eq 0) {
+    Write-Error "No profiles found in '$profilesSourceDir'."
     exit 1
 }
 
 ### List profiles
-Write-Info "Found $($BashrcFiles.Count) profile(s):"
-for ($i = 0; $i -lt $BashrcFiles.Count; $i++) {
-    Write-Host "  [$($i+1)] $($BashrcFiles[$i].Name)" -ForegroundColor Gray
+Write-Info "Found $($profileFiles.Count) profile(s):"
+for ($i = 0; $i -lt $profileFiles.Count; $i++) {
+    Write-Host "  [$($i+1)] $($profileFiles[$i].Name)" -ForegroundColor Gray
 }
 Write-Host ""
 
 ### Select profile
 $index = 0
 do {
-    $raw = Read-Host "Select a profile (1-$($BashrcFiles.Count))"
-    $valid = [int]::TryParse($raw.Trim(), [ref]$index) -and $index -ge 1 -and $index -le $BashrcFiles.Count
+    $raw = Read-Host "Select a profile (1-$($profileFiles.Count))"
+    $valid = [int]::TryParse($raw.Trim(), [ref]$index) -and $index -ge 1 -and $index -le $profileFiles.Count
     if (-not $valid) {
-        Write-Host "  Invalid selection. Enter a number between 1 and $($BashrcFiles.Count)." -ForegroundColor Red
+        Write-Host "  Invalid selection. Enter a number between 1 and $($profileFiles.Count)." -ForegroundColor Red
     }
 } while (-not $valid)
 
-$selectedFile = $BashrcFiles[$index - 1]
-Write-Ok "Selected: $($selectedFile.Name)"
+$selectedFile = $profileFiles[$index - 1]
+Write-Ok "Selected Profile: $($selectedFile.Name)"
 
 ### -- Write selected profile to ~/.bashrc ------------------------------------------------
 Write-Info "Writing $($selectedFile.Name) to ~/.bashrc..."
