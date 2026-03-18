@@ -1,107 +1,204 @@
-# Setup Commands
+# Manual Setup Guide
 
+Step-by-step commands to build the Claude Sandbox from scratch without the installer script. Useful for understanding what the installer does, troubleshooting, or customising the setup.
 
-## Install WSL and add distro
+All PowerShell commands run from an **elevated** (Administrator) prompt on the Windows host. Adjust paths and names to match your `sandbox-config.ps1` values.
+
+---
+
+## 1. Enable WSL2
+
 ```powershell
 wsl --install --no-distribution
 wsl --set-default-version 2
 ```
 
-## Create WSL Distro
+---
+
+## 2. Create the WSL Distro
+
 ```powershell
-# Create a container with the desired base image
-$CONTAINER_ID = podman create debian:bookworm-slim
+# Export a debian:bookworm-slim container as a tarball
+$ContainerId = podman create debian:bookworm-slim
+podman export $ContainerId --output="C:\temp\claude-sandbox.tar"
+podman rm $ContainerId
 
-# Export the container's filesystem to a tarball
-podman export $CONTAINER_ID --output="C:\temp\claude-sandbox.tar"
+# Import the tarball as a new WSL distro
+New-Item -ItemType Directory -Force -Path "D:\WSL\claude-sandbox"
+wsl --import claude-sandbox "D:\WSL\claude-sandbox" "C:\temp\claude-sandbox.tar" --version 2
 
-# Clean up the container
-podman rm $CONTAINER_ID
-
-# Create a directory for the WSL distro and import the tarball
-New-Item -ItemType Directory -Force -Path "$env:LOCALAPPDATA\WSL\claude-sandbox"
-
-# Import the tarball into WSL as a new distro named "claude-sandbox"
-wsl --import claude-sandbox "$env:LOCALAPPDATA\WSL\claude-sandbox" "C:\temp\claude-sandbox.tar" --version 2
-
-# Verify the new distro is listed
-wsl -l -v  
-
-# Enter WSL as root
-wsl -d claude-sandbox -u root 
+# Verify
+wsl -l -v
 ```
 
-## Setup the WSL distro
-```console
-# apt update
-# apt upgrade
-# apt install -y sudo curl nano bubblewrap socat
-# useradd -m -s /bin/bash atcomdev
-# usermod -aG sudo atcomdev
-# passwd atcomdev ## add password
-# cat > /etc/wsl.conf << 'WSLEOF'
+---
+
+## 3. Configure the Distro (as root)
+
+```powershell
+wsl -d claude-sandbox -u root
+```
+
+Inside WSL as root:
+
+```bash
+# Update and install required packages
+apt update && apt upgrade -y
+apt install -y sudo curl nano bubblewrap socat fzf
+
+# Create user
+useradd -m -s /bin/bash dev
+usermod -aG sudo dev
+passwd dev
+
+# Write wsl.conf
+cat > /etc/wsl.conf << 'EOF'
 [boot]
 systemd = true
-
-[network]
-hostname = claude-sandbox
+protectBinfmt = true
 
 [automount]
 enabled = false
-defaultUid = 1000
-defaultGid = 1000
+mountFsTab = true
+root = /mnt/
+uid = 1000
+gid = 1000
+
+[network]
+hostname = claude-sandbox
+generateHosts = true
+generateResolvConf = true
 
 [interop]
+enabled = false
 appendWindowsPath = false
 
 [user]
-default = atcomdev
-WSLEOF
+default = dev
 
-# exit
+[gpu]
+enabled = true
+
+[time]
+useWindowsTimezone = true
+EOF
+
+exit
 ```
 
-## Restart WSL
+---
+
+## 4. Restart the Distro
+
+```powershell
+wsl --terminate claude-sandbox
+# Wait a few seconds, then re-enter as the default user
+wsl -d claude-sandbox
+```
+
+---
+
+## 5. Install Claude Code (as user)
+
+```bash
+# Add ~/.local/bin to PATH
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# Install Claude Code
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+---
+
+## 6. Set Up Claude Persistence
+
+This mounts a Windows folder as `~/.claude` so your Claude login, settings, and memory survive distro rebuilds.
+
+```bash
+# Create the mount point
+mkdir -p ~/.claude
+```
+
+Then as root, add the fstab entry (replace `D:\.claude` with your actual Windows path):
+
+```bash
+echo 'D:\.claude /home/dev/.claude drvfs uid=1000,gid=1000,umask=022,metadata 0 0' | sudo tee -a /etc/fstab
+
+# Symlink .claude.json so it's also persisted
+ln -sf ~/.claude/.claude.json ~/.claude.json
+```
+
+Restart to apply fstab:
+
 ```powershell
 wsl --terminate claude-sandbox
 wsl -d claude-sandbox
 ```
 
-## Install Claude
-```console 
-$ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
-$ curl -fsSL https://claude.ai/install.sh | bash
+---
+
+## 7. Deploy the Bashrc Profile
+
+The profile replaces `~/.bashrc`. Copy `src/profiles/default.sh` from the repo into the distro:
+
+```powershell
+Copy-Item ".\src\profiles\default.sh" "\\wsl$\claude-sandbox\home\dev\.bashrc"
 ```
 
-There's a reported bug where /sandbox returns "unsupported" on some WSL 2 setups even though bubblewrap is installed. This happens when the WSL 2 kernel is missing user namespaces support — which is rare on recent Windows builds but worth knowing. If you hit it, check:
+Or manually ensure `~/.bashrc` ends with:
 
-```console 
-$ cat /proc/sys/kernel/unprivileged_userns_clone # Should return 1 (enabled) If it returns 0, run:
-$ echo 'kernel.unprivileged_userns_clone=1' | sudo tee /etc/sysctl.d/99-userns.conf
-$ sudo sysctl --system
-```
-
-
-
-# Edit bashrc
-Edit your ~/.bashrc to source the netvolution bashrc extension. You can also add multiple entries in a `.bashrc.d` directory if you want to keep things organized.
 ```bash
-[ -f "$HOME/.bashrc.d/netvolution.sh" ] && source "$HOME/.bashrc.d/netvolution.sh"
+export PATH="$HOME/.local/bin:$PATH"
 
-# uncomment to add multiple entries in bashrc 
-# if [ -d "$HOME/.bashrc.d" ]; then
-#     for f in "$HOME/.bashrc.d"/*.sh; do
-#         [ -f "$f" ] && source "$f"
-#     done
-# fi
+# Load workflow
+[ -f "$HOME/.bashrc.d/workflow.sh" ] && source "$HOME/.bashrc.d/workflow.sh"
 ```
 
-Then create the netvolution bashrc extension file:
-```console
-$ mkdir ./.bashrc.d
-$ echo '# Netvolution bashrc extension' > ./.bashrc.d/netvolution.sh
-$ source ./.bashrc.d/netvolution.sh
-```
-Then edit the file and place the contents of `netvolution.sh` in that file.
-This will add the `switch-project` shell command
+---
 
+## 8. Deploy the Workflow
+
+The workflow provides `index-projects`, `mount-project`, `switch-project`, and the welcome banner.
+
+```powershell
+# Create the .bashrc.d directory
+wsl -d claude-sandbox -u dev -- bash -c "mkdir -p ~/.bashrc.d"
+
+# Copy and patch the workflow (replace the token with your Windows projects path)
+(Get-Content ".\src\workflows\default.sh" -Raw) `
+    -replace "__PROJECTS_DRVFS__", "D:\\Projects" |
+    Set-Content -NoNewline "\\wsl$\claude-sandbox\home\dev\.bashrc.d\workflow.sh"
+```
+
+---
+
+## 9. Verify
+
+```bash
+# Reload shell
+source ~/.bashrc
+
+# Should print the welcome banner and Claude version
+# Test project commands
+index-projects
+switch-project <tab>
+```
+
+---
+
+## Troubleshooting
+
+**Claude sandbox mode returns "unsupported"** — user namespaces may be disabled in the WSL2 kernel:
+
+```bash
+cat /proc/sys/kernel/unprivileged_userns_clone   # should be 1
+
+# If 0:
+echo 'kernel.unprivileged_userns_clone=1' | sudo tee /etc/sysctl.d/99-userns.conf
+sudo sysctl --system
+```
+
+**Mount fails on `index-projects`** — check that `PROJECTS_DRVFS` in `~/.bashrc.d/workflow.sh` matches your actual Windows projects path.
+
+**Claude not found after install** — ensure `~/.local/bin` is on your PATH (`echo $PATH`) and that the install completed without errors.

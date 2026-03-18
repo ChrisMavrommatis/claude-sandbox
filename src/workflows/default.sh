@@ -59,7 +59,7 @@ mount-project() {
     if mountpoint -q "$project_path" 2>/dev/null; then
         local current_mode
         current_mode=$(findmnt -T $project_path  | grep -oE 'ro,|rw,' | sed 's/,//')
-        if [[ "$current_mode" == "$mode" ]]; then
+        if [[ "$current_mode" == "${mode#--}" ]]; then
             echo "Project '$project' is already mounted with mode $mode"
             return 0
         else
@@ -96,17 +96,17 @@ unmount-project() {
 
 switch-project() {
     local project="$1"
-    [[ -z "$project" ]] && { echo "Usage: switch-project <project>" >&2; return 1; }
-    
+
+    if [[ -z "$project" ]]; then
+        [[ -f "$PROJECTS_INDEX" ]] || { echo "No project index found. Run index-projects first." >&2; return 1; }
+        project=$(fzf --prompt="project> " < "$PROJECTS_INDEX") || return 0
+        [[ -z "$project" ]] && return 0
+    fi
+
     local project_path="$PROJECTS_HOME/$project"
 
-    if mountpoint -q "$project_path" 2>/dev/null; then
-        mount-project "$project" --rw \
-            || { echo "Failed to remount project '$project' with rw access"; return 1; }
-    else
-        mount-project "$project" --rw \
-            || { echo "Failed to mount project '$project' with rw access"; return 1; }
-    fi
+    mount-project "$project" --rw \
+        || { echo "Failed to mount project '$project' with rw access"; return 1; }
 
     cd "$project_path" || { echo "Failed to cd into project '$project' at '$project_path'"; return 1; }
 }
@@ -141,7 +141,7 @@ BANNER
     echo ""
     printf "  ${C}Project${N}\n"
     printf "    index-projects              Scan and index Windows projects\n"
-    printf "    switch-project <name>       Mount + cd into a project (RW)\n"
+    printf "    switch-project [name]       Mount + cd into a project (RW, fzf picker if no name)\n"
     printf "    mount-project <name> --rw   Mount read-write\n"
     printf "    mount-project <name> --ro   Mount read-only\n"
     printf "    unmount-project <name>      Unmount a project\n"

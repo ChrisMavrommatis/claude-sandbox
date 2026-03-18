@@ -6,9 +6,9 @@ A one-command setup that creates an isolated Linux environment on Windows (via W
 
 - A clean Debian Linux distro running inside WSL2
 - Claude Code installed and ready to go
-- A `switch-project` command to instantly jump into any of your Windows projects
+- A `switch-project` command with tab completion to jump into any of your Windows projects
 - Claude's state and settings persisted across distro rebuilds (no re-authentication)
-- Full support for Claude's `/sandbox` and network features (bubblewrap + socat)
+- Full support for Claude's sandbox mode and network features (bubblewrap + socat)
 
 ## Prerequisites
 
@@ -21,10 +21,10 @@ A one-command setup that creates an isolated Linux environment on Windows (via W
 **1. Edit the config** — open `src/sandbox-config.ps1` and set your paths:
 
 ```powershell
-$ProjectsPath       = "D:\Projects"   # where your Windows projects live
-$ClaudePersistenceDir = "D:\.claude"  # where Claude state is persisted
-$UserPassword       = "yourpassword"
-$ContainerRuntime   = "podman"        # or "docker"
+$ProjectsPath         = "D:\Projects"  # where your Windows projects live
+$ClaudePersistenceDir = "D:\.claude"   # where Claude state is persisted
+$UserPassword         = "yourpassword"
+$ContainerRuntime     = "podman"       # or "docker"
 ```
 
 **2. Run the installer** from an elevated PowerShell prompt:
@@ -33,23 +33,24 @@ $ContainerRuntime   = "podman"        # or "docker"
 .\src\Install-ClaudeSandbox.ps1
 ```
 
-That's it. The installer will create the WSL2 distro, install packages, configure Claude Code, and set everything up.
+That's it. The installer creates the WSL2 distro, installs packages, configures Claude Code, and wires up project mounting and persistence.
 
 ## Using the sandbox
 
 Once inside the WSL2 distro:
 
 ```bash
-# Jump into a project (fuzzy-search picker if no name given)
+# Index your Windows projects (run once after install, or after adding new folders)
+index-projects
+
+# Jump into a project — opens fzf picker if no name given, tab completion otherwise
+switch-project
 switch-project my-app
 
 # Or mount manually
 mount-project my-app --rw    # read-write
 mount-project my-app --ro    # read-only
 unmount-project my-app
-
-# Rebuild the project index (run after adding new project folders)
-index-projects
 ```
 
 ## Switching profiles
@@ -57,17 +58,18 @@ index-projects
 You can swap the shell config or workflow profile at any time from PowerShell:
 
 ```powershell
-.\src\Change-BashrcProfile.ps1   # pick a bashrc style (default or pretty)
-.\src\Change-Workflow.ps1        # pick a workflow profile
+.\src\Change-Profile.ps1      # pick a bashrc style (default or pretty)
+.\src\Change-Workflow.ps1     # pick a workflow profile
+.\src\Remove-ClaudeSandbox.ps1  # uninstall the distro (keeps Claude persistence data)
 ```
 
 ## How it works
 
-The installer exports a `debian:bookworm-slim` container image as a WSL2 distro tarball, imports it, then configures the distro from scratch. Your Windows project folders are mounted into Linux on demand using WSL's `drvfs` driver — no copying, no syncing. Claude's `.claude` directory is permanently bind-mounted from a Windows folder so your login, memory, and settings survive even if you nuke and rebuild the distro.
+The installer exports a `debian:bookworm-slim` container image as a WSL2 tarball, imports it as a distro, then configures it from scratch. Windows project folders are mounted into Linux on demand using WSL's `drvfs` driver — no copying, no syncing. Claude's `.claude` directory is permanently bind-mounted from a Windows folder via `/etc/fstab` so your login, memory, and settings survive even if you nuke and rebuild the distro.
 
 ## Troubleshooting
 
-**`/sandbox` returns "unsupported"** — the WSL2 kernel may have user namespaces disabled. Fix:
+**Claude sandbox mode returns "unsupported"** — the WSL2 kernel may have user namespaces disabled. Fix:
 
 ```bash
 cat /proc/sys/kernel/unprivileged_userns_clone   # should be 1
