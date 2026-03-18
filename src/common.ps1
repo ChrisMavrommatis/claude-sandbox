@@ -1,9 +1,9 @@
-# ═══════════════════════════════════════════════════════════════════════════════
-# Claude Sandbox — Common functions and configuration
+# ===============================================================================
+# Claude Sandbox - Common functions and configuration
 # This file is imported by all other scripts.
 # It contains common functions and variables used across the installer
 # and configuration scripts.
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 function Write-Step([string]$msg) {
     Write-Host ""
@@ -45,4 +45,3 @@ function Check-DirectoryExistsOrExit([string]$path) {
         exit 1
     }
 }
-
