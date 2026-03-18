@@ -33,9 +33,9 @@ Write-Host "  Claude persistence data ($ClaudePersistenceDir) will NOT be remove
 Write-Host ""
 
 # -- Confirm ---------------------------------------------------------------------------
-$confirm = Read-Host "  Type the distro name to confirm removal: $DistroName > "
-if ($confirm -ne $DistroName) {
-    Write-Host "  Aborted — name did not match." -ForegroundColor Yellow
+$confirm = Read-Host "  Remove '$DistroName'? [y/N]"
+if ($confirm -notmatch '^[Yy]') {
+    Write-Host "  Aborted." -ForegroundColor Yellow
     exit 0
 }
 
@@ -52,7 +52,7 @@ if ($registered) {
     Check-ExitCode "Failed to unregister distro '$DistroName'."
     Write-Ok "Distro '$DistroName' unregistered"
 } else {
-    Write-Info "Distro '$DistroName' was not registered — skipping"
+    Write-Info "Distro '$DistroName' was not registered - skipping"
 }
 
 # -- Optionally remove install directory -----------------------------------------------
@@ -66,11 +66,12 @@ if (Test-Path $InstallDir) {
         Write-Info "Install directory kept"
     }
 } else {
-    Write-Info "Install directory not found — skipping"
+    Write-Info "Install directory not found - skipping"
 }
+
 
 # -- Done ------------------------------------------------------------------------------
 Write-Host ""
 Write-Host "  Removal complete." -ForegroundColor Green
-Write-Host "  Your Claude data at '$ClaudePersistenceDir' is intact." -ForegroundColor DarkGray
+Write-Host "  Your Claude data at $ClaudePersistenceDir is intact." -ForegroundColor DarkGray
 Write-Host ""

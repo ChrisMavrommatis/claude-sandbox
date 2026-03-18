@@ -16,8 +16,9 @@ From an elevated PowerShell prompt on the Windows host:
 
 Runtime profile management:
 ```powershell
-.\src\Change-Profile.ps1     # Switch bashrc profile interactively
-.\src\Change-Workflow.ps1    # Switch workflow profile interactively
+.\src\Change-Profile.ps1          # Switch bashrc profile interactively
+.\src\Change-Workflow.ps1         # Switch workflow profile interactively
+.\src\Uninstall-ClaudeSandbox.ps1 # Remove the distro
 ```
 
 Inside the WSL sandbox:
@@ -48,7 +49,7 @@ unmount-project <name>            # Safely unmount
 | `src/wsl.conf` | WSL2 config template embedded into the distro (systemd, GPU, no Windows interop) |
 | `src/Change-Profile.ps1` | Interactively deploys a bashrc profile from `src/profiles/` into the sandbox |
 | `src/Change-Workflow.ps1` | Interactively deploys a workflow script from `src/workflows/` into the sandbox |
-| `src/Remove-ClaudeSandbox.ps1` | Terminates and unregisters the distro, optionally removes the install directory; never touches `$ClaudePersistenceDir` |
+| `src/Uninstall-ClaudeSandbox.ps1` | Terminates and unregisters the distro, optionally removes the install directory; never touches `$ClaudePersistenceDir` |
 | `src/workflows/default.sh` | Bash functions (`index-projects`, `mount-project`, `switch-project`) with tab completion and welcome banner |
 | `src/profiles/default.sh` | Standard Debian bashrc that sources `~/.bashrc.d/workflow.sh` |
 | `src/profiles/pretty.sh` | Enhanced bashrc with colored prompt and archive extractor utility |

@@ -58,9 +58,9 @@ unmount-project my-app
 You can swap the shell config or workflow profile at any time from PowerShell:
 
 ```powershell
-.\src\Change-Profile.ps1      # pick a bashrc style (default or pretty)
-.\src\Change-Workflow.ps1     # pick a workflow profile
-.\src\Remove-ClaudeSandbox.ps1  # uninstall the distro (keeps Claude persistence data)
+.\src\Change-Profile.ps1       # pick a bashrc style (default or pretty)
+.\src\Change-Workflow.ps1      # pick a workflow profile
+.\src\Uninstall-ClaudeSandbox.ps1  # uninstall the distro (keeps Claude persistence data)
 ```
 
 ## How it works

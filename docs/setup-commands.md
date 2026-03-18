@@ -187,6 +187,7 @@ switch-project <tab>
 
 ---
 
+
 ## Troubleshooting
 
 **Claude sandbox mode returns "unsupported"** — user namespaces may be disabled in the WSL2 kernel:

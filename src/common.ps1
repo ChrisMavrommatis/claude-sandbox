@@ -45,3 +45,4 @@ function Check-DirectoryExistsOrExit([string]$path) {
         exit 1
     }
 }
+

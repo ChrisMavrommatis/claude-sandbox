@@ -251,14 +251,15 @@ Execute-InSandbox "rm -f /tmp/claude-fstab.tmp" "root"
 Write-Ok "Temporary files cleaned up"
 
 
+
 ## -- Done -------------------------------------------------------------------------------
 Write-Host ""
 Write-Host "==============================================================================="
 Write-Host "  Installation complete!" -ForegroundColor Green
 Write-Host ""
-Write-Host "  Launch   : wsl -d $DistroName" -ForegroundColor White
-Write-Host "  Run      : claude" -ForegroundColor White
-Write-Host "  Uninstall : wsl --unregister $DistroName" -ForegroundColor White
+Write-Host "  Launch    : wsl -d $DistroName" -ForegroundColor White
+Write-Host "  Run       : claude" -ForegroundColor White
+Write-Host "  Uninstall : .\src\Uninstall-ClaudeSandbox.ps1" -ForegroundColor White
 Write-Host "==============================================================================="
 Write-Host ""
 
