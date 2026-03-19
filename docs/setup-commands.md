@@ -187,6 +187,24 @@ switch-project <tab>
 
 ---
 
+## 10. Add a Windows Terminal Profile (optional)
+
+The installer does this automatically, but you can run it manually or re-apply it any time:
+
+```powershell
+.\src\Add-TerminalProfile.ps1
+```
+
+This reads `$TerminalProfileName`, `$TerminalProfileIcon`, `$TerminalProfileColorScheme`, and `$TerminalProfileBackground` from `sandbox-config.ps1` and patches the Windows Terminal fragment file for the distro as well as the main `settings.json` dropdown list.
+
+To remove the profile entry:
+
+```powershell
+.\src\Remove-TerminalProfile.ps1
+```
+
+---
+
 
 ## Troubleshooting
 

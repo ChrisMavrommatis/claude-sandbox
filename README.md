@@ -58,9 +58,27 @@ unmount-project my-app
 You can swap the shell config or workflow profile at any time from PowerShell:
 
 ```powershell
-.\src\Change-Profile.ps1       # pick a bashrc style (default or pretty)
-.\src\Change-Workflow.ps1      # pick a workflow profile
+.\src\Change-Profile.ps1           # pick a bashrc style (default or pretty)
+.\src\Change-Workflow.ps1          # pick a workflow profile
 .\src\Uninstall-ClaudeSandbox.ps1  # uninstall the distro (keeps Claude persistence data)
+```
+
+## Windows Terminal integration
+
+The installer automatically adds a Windows Terminal profile for the distro. You can customise it before running the installer by editing `src/sandbox-config.ps1`:
+
+```powershell
+$TerminalProfileName        = "Claude Sandbox"       # name in the dropdown
+$TerminalProfileIcon        = "ms-appx:///..."        # optional icon path (.png)
+$TerminalProfileColorScheme = "One Half Dark"         # must exist in your Terminal settings
+$TerminalProfileBackground  = "#1a0a22"               # optional hex background color
+```
+
+To add or remove the Terminal profile independently:
+
+```powershell
+.\src\Add-TerminalProfile.ps1     # add / re-apply the profile
+.\src\Remove-TerminalProfile.ps1  # remove the profile from the dropdown
 ```
 
 ## How it works

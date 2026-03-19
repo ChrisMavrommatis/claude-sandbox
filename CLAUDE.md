@@ -43,12 +43,14 @@ unmount-project <name>            # Safely unmount
 
 | File | Role |
 |------|------|
-| `src/sandbox-config.ps1` | All user-editable config: paths, passwords, container runtime, package list, distro name |
+| `src/sandbox-config.ps1` | All user-editable config: paths, passwords, container runtime, package list, distro name, terminal profile |
 | `src/Install-ClaudeSandbox.ps1` | Main installer — reads config, calls container runtime, invokes WSL, deploys everything |
 | `src/common.ps1` | Shared PowerShell helpers: `Execute-InSandbox`, `Write-Step/Ok/Info`, `Check-ExitCode` |
 | `src/wsl.conf` | WSL2 config template embedded into the distro (systemd, GPU, no Windows interop) |
 | `src/Change-Profile.ps1` | Interactively deploys a bashrc profile from `src/profiles/` into the sandbox |
 | `src/Change-Workflow.ps1` | Interactively deploys a workflow script from `src/workflows/` into the sandbox |
+| `src/Add-TerminalProfile.ps1` | Adds a customised Windows Terminal profile for the distro (called by the installer) |
+| `src/Remove-TerminalProfile.ps1` | Removes the Windows Terminal profile entry (called by the uninstaller) |
 | `src/Uninstall-ClaudeSandbox.ps1` | Terminates and unregisters the distro, optionally removes the install directory; never touches `$ClaudePersistenceDir` |
 | `src/workflows/default.sh` | Bash functions (`index-projects`, `mount-project`, `switch-project`) with tab completion and welcome banner |
 | `src/profiles/default.sh` | Standard Debian bashrc that sources `~/.bashrc.d/workflow.sh` |
@@ -64,6 +66,10 @@ Edit `src/sandbox-config.ps1` before running the installer. Key variables:
 - `$ContainerRuntime` — `podman` or `docker`
 - `$Packages` — Extra apt packages to install in the distro
 - `$Username` / `$DistroName` / `$InstallDir` — Distro identity and install location
+- `$TerminalProfileName` — Display name shown in the Windows Terminal dropdown
+- `$TerminalProfileIcon` — Optional icon path for the Windows Terminal profile
+- `$TerminalProfileColorScheme` — Optional color scheme name (must exist in Windows Terminal settings)
+- `$TerminalProfileBackground` — Optional hex background color for the Windows Terminal profile
 
 ### Token Replacement Pattern
 
