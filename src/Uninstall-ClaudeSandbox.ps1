@@ -16,6 +16,21 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     exit 1
 }
 
+
+# -- Ensure required files are present ------------------------------------------------
+$RequiredFiles = @(
+    "common.ps1",
+    "sandbox-config.ps1",
+    "Remove-TerminalProfile.ps1"
+)
+foreach ($file in $RequiredFiles) {
+    if (-not (Test-Path (Join-Path $PSScriptRoot $file))) {
+        Write-Error "Required file '$file' not found in script directory. Please ensure all files are present."
+        exit 1
+    }
+}
+
+
 # -- Load configuration ----------------------------------------------------------------
 . "$PSScriptRoot\common.ps1"
 . "$PSScriptRoot\sandbox-config.ps1"
@@ -69,6 +84,10 @@ if (Test-Path $InstallDir) {
     Write-Info "Install directory not found - skipping"
 }
 
+# -- Remove Windows Terminal profile ------------------------------------------------------
+Write-Step "Removing Windows Terminal profile..."
+$profileScript = Join-Path $PSScriptRoot "Remove-TerminalProfile.ps1"
+& $profileScript
 
 # -- Done ------------------------------------------------------------------------------
 Write-Host ""

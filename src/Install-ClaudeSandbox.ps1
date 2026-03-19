@@ -241,6 +241,7 @@ $workflowContent = (Get-Content "$PSScriptRoot\workflows\default.sh" -Raw -Encod
 Write-Ok "Default workflow profile added"
 
 ## -- Step 5: Add Windows Terminal profile -------------------------------------------------
+Write-Step "Adding Windows Terminal profile for '$DistroName'..."
 . "$PSScriptRoot\Add-TerminalProfile.ps1"
 
 ## -- Step 5: Cleanup temp files ----------------------------------------------------------------

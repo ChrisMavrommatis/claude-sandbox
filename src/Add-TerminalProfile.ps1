@@ -83,24 +83,23 @@ $profile.name = $TerminalProfileName
 
 ### if background field exists, update it. Otherwise add it
 if ($profile.PSObject.Properties.Name -contains "background") {
-    $profile.background = "#5a0a22"
+    $profile.background = $TerminalProfileBackground
 } else {
-    $profile | Add-Member -MemberType NoteProperty -Name "background" -Value "#5a0a22"
+    $profile | Add-Member -MemberType NoteProperty -Name "background" -Value $TerminalProfileBackground
 }
 
 ### if colorScheme field exists, update it. Otherwise add it
 if ($profile.PSObject.Properties.Name -contains "colorScheme") {
-    $profile.colorScheme = "One Half Dark"
+    $profile.colorScheme = $TerminalProfileColorScheme
 } else {
-    $profile | Add-Member -MemberType NoteProperty -Name "colorScheme" -Value "One Half Dark"
+    $profile | Add-Member -MemberType NoteProperty -Name "colorScheme" -Value $TerminalProfileColorScheme
 }
 
 ### if icon field exists, update it. Otherwise add it
-$iconPath =  "ms-appx:///ProfileIcons/{9acb9455-ca41-5af7-950f-6bca1bc9722f}.png" 
 if ($profile.PSObject.Properties.Name -contains "icon") {
-    $profile.icon = $iconPath
+    $profile.icon = $TerminalProfileIcon
 } else {
-    $profile | Add-Member -MemberType NoteProperty -Name "icon" -Value $iconPath
+    $profile | Add-Member -MemberType NoteProperty -Name "icon" -Value $TerminalProfileIcon
 }
 
 $profileGuid = $profile.guid
