@@ -7,7 +7,7 @@
 
 function Write-Step([string]$msg) {
     Write-Host ""
-    Write-Host "  >> $msg" -ForegroundColor Cyan
+    Write-Host "  >> $msg" -ForegroundColor Blue
 }
 
 function Write-Ok([string]$msg) {
@@ -15,7 +15,7 @@ function Write-Ok([string]$msg) {
 }
 
 function Write-Info([string]$msg) {
-    Write-Host "     --  $msg" -ForegroundColor DarkGray
+    Write-Host "     --  $msg" -ForegroundColor DarkCyan
 }
 
 function Check-ExitCode([string]$errorMessage) {
@@ -29,7 +29,7 @@ function Check-ExitCode([string]$errorMessage) {
 }
 
 function Execute-InSandbox([string]$command, [string]$user = $Username) {
-    wsl -d $DistroName --user $user -- bash -c $command
+    wsl -d $DistroName --user $user -- bash -c $command  | ForEach-Object { Write-Host "       $_`r" -ForegroundColor DarkGray }
     Check-ExitCode "Command '$command' failed in sandbox. Check the output above for details."
 }
 
@@ -45,3 +45,4 @@ function Check-DirectoryExistsOrExit([string]$path) {
         exit 1
     }
 }
+

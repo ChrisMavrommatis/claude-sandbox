@@ -8,9 +8,9 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # -- Paths & credentials --------------------------------------------------------
-$ProjectsPath = "D:\Projects"   # Root folder containing your Windows projects
-$UserPassword = "changeme"      # Avoid single-quote characters in the password
-$ClaudePersistenceDir = "D:\.claude"  # Windows folder to be mounted as /.claude in the sandbox for persistent storage
+$ProjectsPath           = "D:\Projects"   # Root folder containing your Windows projects
+$UserPassword           = "changeme"      # Avoid single-quote characters in the password
+$ClaudePersistenceDir   = "D:\.claude"    # Windows folder to be mounted as /.claude in the sandbox for persistent storage
 
 # -- Container runtime --------------------------------------------------------- 
 $ContainerRuntime = "podman"    # "podman" or "docker"
@@ -26,10 +26,12 @@ $Packages = @(
 )
 
 # -- Distro settings (unlikely to need changing) ------------------------------
-$Username   = "dev"
-$DistroName = "claude-sandbox-test"
-$DistroImage = "debian:bookworm-slim"
-$InstallDir = "D:\WSL\$DistroName"
+$Username               = "dev"
+$DistroName             = "claude-sandbox-test"
+$TerminalProfileName    = "Claude Sandbox Test"  # Name shown in Windows Terminal dropdown
+$DistroImage            = "debian:bookworm-slim"
+$InstallDir             = "D:\WSL\$DistroName"
+
 
 
 

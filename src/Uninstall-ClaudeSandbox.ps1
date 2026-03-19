@@ -41,14 +41,14 @@ if ($confirm -notmatch '^[Yy]') {
 
 # -- Terminate distro ------------------------------------------------------------------
 Write-Step "Terminating distro..."
-wsl --terminate $DistroName 2>$null
+wsl --terminate $DistroName 2>$null | Out-Null
 Write-Ok "Distro terminated"
 
 # -- Unregister distro -----------------------------------------------------------------
 Write-Step "Unregistering distro..."
 $registered = wsl -l --quiet 2>$null | Where-Object { $_.Trim() -eq $DistroName }
 if ($registered) {
-    wsl --unregister $DistroName
+    wsl --unregister $DistroName --quiet 2>$null
     Check-ExitCode "Failed to unregister distro '$DistroName'."
     Write-Ok "Distro '$DistroName' unregistered"
 } else {

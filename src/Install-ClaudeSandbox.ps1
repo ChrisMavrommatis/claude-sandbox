@@ -21,6 +21,7 @@ $RequiredFiles = @(
     "common.ps1",
     "sandbox-config.ps1",
     "wsl.conf",
+    "Add-TerminalProfile.ps1",
     "profiles\default.sh",
     "workflows\default.sh"
 )
@@ -78,8 +79,8 @@ Write-Step "Step 1: Setting up WSL2 and creating distro..."
 
 ### Install WSL2 if not already installed
 Write-Info "Installing WSL2 (if not already installed)..."
-wsl --install --no-distribution 2>$null
-wsl --set-default-version 2
+wsl --install --no-distribution 2>$null | Out-Null
+wsl --set-default-version 2 | Out-Null
 
 Write-Ok "Step 1 complete: WSL2 is set up"
 
@@ -118,7 +119,7 @@ Write-Ok "Container removed"
 ### Import tarball to WSL
 Write-Info "Importing '$DistroImage' as WSL distro '$DistroName'..."
 Ensure-DirectoryExists $InstallDir
-wsl --import $DistroName $InstallDir $TarPath --version 2
+wsl --import $DistroName $InstallDir $TarPath --version 2 | Out-Null
 Write-Ok "Distro imported to $InstallDir"
 
 
@@ -157,7 +158,7 @@ Write-Ok "wsl.conf written"
 
 ### Restart the distro to apply wsl.conf changes
 Write-Info "Restarting distro to apply wsl.conf..."
-wsl --terminate $DistroName
+wsl --terminate $DistroName | Out-Null
 Start-Sleep -Seconds 5
 Write-Ok "Distro restarted"
 
@@ -170,7 +171,7 @@ Write-Ok "Directories and PATH configured"
 
 ### Restart the distro to apply PATH changes
 Write-Info "Restarting distro to apply PATH changes..."
-wsl --terminate $DistroName
+wsl --terminate $DistroName | Out-Null
 Start-Sleep -Seconds 5
 Write-Ok "Distro restarted"
 
@@ -198,7 +199,7 @@ Write-Ok "Symlink for ~/.claude.json created"
 
 ### Restart the distro to apply fstab changes
 Write-Info "Restarting distro to apply FSTAB changes..."
-wsl --terminate $DistroName
+wsl --terminate $DistroName | Out-Null
 Start-Sleep -Seconds 5
 Write-Ok "Distro restarted"
 
@@ -239,6 +240,8 @@ $workflowContent = (Get-Content "$PSScriptRoot\workflows\default.sh" -Raw -Encod
 )
 Write-Ok "Default workflow profile added"
 
+## -- Step 5: Add Windows Terminal profile -------------------------------------------------
+. "$PSScriptRoot\Add-TerminalProfile.ps1"
 
 ## -- Step 5: Cleanup temp files ----------------------------------------------------------------
 Write-Step "Step 5: Cleaning up temporary files..."
