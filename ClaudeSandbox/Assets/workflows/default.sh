@@ -12,7 +12,15 @@ PROJECTS_INDEX="$HOME/.cache/projects.index"
 
 PROJECTS_HOME="$HOME/projects"
 
-
+# === Project Name Validation [S-012] ================================================
+_validate_project_name() {
+    local name="$1"
+    if [[ -z "$name" || "$name" == */* || "$name" == *\\* || "$name" == *..* ]]; then
+        echo "Invalid project name '$name'. Must not contain /, \\, or .." >&2
+        return 1
+    fi
+    return 0
+}
 
 # === Project Indexer ================================================================
 PROJECTS_LIST_MOUNT="/mnt/projects_list"
@@ -44,6 +52,7 @@ mount-project() {
     local project="$1"
     local mode="${2:---rw}"
     [[ -z "$project" ]] && { echo "Usage: mount-project <project> [--ro|--rw]" >&2; return 1; }
+    _validate_project_name "$project" || return 1
     [[ "$mode" != "--ro" && "$mode" != "--rw" ]] && { echo "Invalid mode '$mode'. Use --ro or --rw." >&2; return 1; }
     
     local project_path="$PROJECTS_HOME/$project"
@@ -86,6 +95,7 @@ mount-project() {
 unmount-project() {
     local project="$1"
     [[ -z "$project" ]] && { echo "Usage: unmount-project <project>" >&2; return 1; }
+    _validate_project_name "$project" || return 1
     
     local project_path="$PROJECTS_HOME/$project"
 
@@ -111,6 +121,7 @@ switch-project() {
         project=$(fzf --prompt="project> " < "$PROJECTS_INDEX") || return 0
         [[ -z "$project" ]] && return 0
     fi
+    _validate_project_name "$project" || return 1
 
     local project_path="$PROJECTS_HOME/$project"
 

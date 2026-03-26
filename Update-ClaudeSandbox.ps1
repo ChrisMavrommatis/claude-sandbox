@@ -1,13 +1,11 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Installs the Claude Code WSL2 sandbox environment.
+    Updates packages and re-deploys profiles in the Claude Sandbox.
 .DESCRIPTION
-    Creates a Debian bookworm-slim WSL2 distro with Claude Code installed
-    and project-switching helpers configured.
-    Prerequisites: WSL2 feature enabled, Podman or Docker for Windows installed.
+    Runs apt upgrade inside the sandbox and re-deploys the default bashrc profile
+    and workflow. Verifies the sandbox at the end.
     Run from an elevated PowerShell prompt.
-    Edit sandbox-config.ps1 first.
 #>
 
 $ErrorActionPreference = 'Stop'
@@ -32,4 +30,4 @@ $Config = @{
     GpuEnabled                 = $GpuEnabled
 }
 
-Install-Sandbox -Config $Config
+Update-Sandbox -Config $Config

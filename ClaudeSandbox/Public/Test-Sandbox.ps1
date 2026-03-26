@@ -51,7 +51,7 @@ function Test-Sandbox {
     }
 
     # =====================================================================================
-    # Installation Checks (I-001 through I-012)
+    # Installation Checks
     # =====================================================================================
     Write-Step "Installation Checks"
 
@@ -146,14 +146,14 @@ function Test-Sandbox {
     }
 
     # I-012: Claude Code installed (warn-only)
-    if (Test-InSandbox "which claude" $Username) {
+    if (Test-InSandbox "test -f /home/$Username/.local/bin/claude" $Username) {
         Write-CheckResult "I-012" "PASS" "Claude Code installed"
     } else {
         Write-CheckResult "I-012" "WARN" "Claude Code not installed"
     }
 
     # =====================================================================================
-    # Security Checks (S-001 through S-011)
+    # Security Checks
     # =====================================================================================
     Write-Step "Security Checks"
 
@@ -252,6 +252,29 @@ function Test-Sandbox {
         Write-CheckResult "S-011" "PASS" "fstab metadata flag set"
     } else {
         Write-CheckResult "S-011" "FAIL" "fstab metadata flag missing"
+    }
+
+    # S-012: Project name validation rejects path traversal
+    if (Test-InSandbox "source /home/$Username/.bashrc.d/workflow.sh && mount-project '../../etc' 2>/dev/null" $Username) {
+        Write-CheckResult "S-012" "FAIL" "Path traversal not blocked"
+    } else {
+        Write-CheckResult "S-012" "PASS" "Project name validation active"
+    }
+
+    # S-013: Password is not the default 'changeme' (warn-only)
+    $pwCheck = Get-FromSandbox "echo 'changeme' | su -c 'echo ok' $Username 2>/dev/null"
+    if ($pwCheck -and $pwCheck.Trim() -eq "ok") {
+        Write-CheckResult "S-013" "WARN" "Password is still 'changeme'"
+    } else {
+        Write-CheckResult "S-013" "PASS" "Password changed from default"
+    }
+
+    # S-014: GPU setting matches config
+    $gpuExpected = if ($Config.GpuEnabled) { "true" } else { "false" }
+    if ($wslConfText -match "enabled\s*=\s*$gpuExpected" -and $wslConfText -match '\[gpu\]') {
+        Write-CheckResult "S-014" "PASS" "GPU setting matches config ($gpuExpected)"
+    } else {
+        Write-CheckResult "S-014" "WARN" "GPU setting in wsl.conf does not match config (expected $gpuExpected)"
     }
 
     # =====================================================================================

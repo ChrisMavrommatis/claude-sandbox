@@ -28,6 +28,7 @@ $Config = @{
     TerminalProfileIcon        = $TerminalProfileIcon
     TerminalProfileColorScheme = $TerminalProfileColorScheme
     TerminalProfileBackground  = $TerminalProfileBackground
+    GpuEnabled                 = $GpuEnabled
 }
 
 Uninstall-Sandbox -Config $Config

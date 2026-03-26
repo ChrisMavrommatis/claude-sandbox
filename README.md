@@ -1,6 +1,6 @@
 # Claude Sandbox
 
-A one-command setup that creates an isolated Linux environment on Windows (via WSL2) purpose-built for [Claude Code](https://claude.ai/code). Your Windows projects stay on Windows — the sandbox mounts them on demand so Claude can work on them without touching the rest of your system.
+A one-command setup that creates an isolated Linux environment on Windows (via WSL2) purpose-built for [Claude Code](https://claude.ai/code). Your Windows projects stay on Windows - the sandbox mounts them on demand so Claude can work on them without touching the rest of your system.
 
 ## What you get
 
@@ -43,7 +43,7 @@ Once inside the WSL2 distro:
 # Index your Windows projects (run once after install, or after adding new folders)
 index-projects
 
-# Jump into a project — opens fzf picker if no name given, tab completion otherwise
+# Jump into a project - opens fzf picker if no name given, tab completion otherwise
 switch-project
 switch-project my-app
 
@@ -61,7 +61,7 @@ After installing (or any time you want to check the sandbox is healthy):
 .\Verify-ClaudeSandbox.ps1
 ```
 
-This runs 23 checks across installation and security, each identified by a code (`I-001` for installation, `S-001` for security). Example output:
+Runs 26 checks across installation and security, each identified by a code (`I-001` for installation, `S-001` for security). Example output:
 
 ```
   PASS [I-001] Distro registered
@@ -72,44 +72,35 @@ This runs 23 checks across installation and security, each identified by a code 
   All checks passed: 22 passed, 1 warnings
 ```
 
-## Switching profiles
-
-You can swap the shell config or workflow profile at any time from PowerShell:
+## Management
 
 ```powershell
-.\Change-Profile.ps1               # pick a bashrc style (default or pretty)
-.\Change-Workflow.ps1              # pick a workflow profile
-.\Uninstall-ClaudeSandbox.ps1      # uninstall the distro (keeps Claude persistence data)
+.\Change-Profile.ps1              # pick a bashrc style (default or pretty)
+.\Change-Workflow.ps1             # pick a workflow profile
+.\Update-ClaudeSandbox.ps1        # update packages and re-deploy profiles
+.\Uninstall-ClaudeSandbox.ps1     # remove the distro (keeps Claude persistence data)
 ```
 
 ## Windows Terminal integration
 
-The installer automatically adds a Windows Terminal profile for the distro. You can customise it before running the installer by editing `sandbox-config.ps1`:
+The installer automatically adds a Windows Terminal profile. Customise it in `sandbox-config.ps1` before running the installer:
 
 ```powershell
-$TerminalProfileName        = "Claude Sandbox"       # name in the dropdown
-$TerminalProfileIcon        = "ms-appx:///..."        # optional icon path (.png)
-$TerminalProfileColorScheme = "One Half Dark"         # must exist in your Terminal settings
-$TerminalProfileBackground  = "#1a0a22"               # optional hex background color
+$TerminalProfileName        = "Claude Sandbox"
+$TerminalProfileIcon        = "ms-appx:///..."
+$TerminalProfileColorScheme = "One Half Dark"
+$TerminalProfileBackground  = "#1a0a22"
 ```
 
-To add or remove the Terminal profile independently, import the module and call the functions directly:
-
-```powershell
-Import-Module .\ClaudeSandbox\ClaudeSandbox.psd1 -Force
-. .\sandbox-config.ps1
-$Config = @{ DistroName = $DistroName; TerminalProfileName = $TerminalProfileName; TerminalProfileIcon = $TerminalProfileIcon; TerminalProfileColorScheme = $TerminalProfileColorScheme; TerminalProfileBackground = $TerminalProfileBackground }
-Add-TerminalProfile -Config $Config       # add / re-apply the profile
-Remove-TerminalProfile -Config $Config    # remove the profile from the dropdown
-```
+To manage the Terminal profile independently, use `Add-TerminalProfile` or `Remove-TerminalProfile` from the `ClaudeSandbox` module.
 
 ## How it works
 
-The installer exports a `debian:bookworm-slim` container image as a WSL2 tarball, imports it as a distro, then configures it from scratch. Windows project folders are mounted into Linux on demand using WSL's `drvfs` driver — no copying, no syncing. Claude's `.claude` directory is permanently bind-mounted from a Windows folder via `/etc/fstab` so your login, memory, and settings survive even if you nuke and rebuild the distro.
+The installer exports a `debian:bookworm-slim` container image as a WSL2 tarball, imports it as a distro, then configures it from scratch. Windows project folders are mounted into Linux on demand using WSL's `drvfs` driver - no copying, no syncing. Claude's `.claude` directory is permanently bind-mounted from a Windows folder via `/etc/fstab` so your login, memory, and settings survive even if you nuke and rebuild the distro.
 
 ## Troubleshooting
 
-**Claude sandbox mode returns "unsupported"** — the WSL2 kernel may have user namespaces disabled. Fix:
+**Claude sandbox mode returns "unsupported"** - the WSL2 kernel may have user namespaces disabled. Fix:
 
 ```bash
 cat /proc/sys/kernel/unprivileged_userns_clone   # should be 1

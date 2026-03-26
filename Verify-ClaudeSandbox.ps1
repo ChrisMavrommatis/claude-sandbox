@@ -27,6 +27,7 @@ $Config = @{
     TerminalProfileIcon        = $TerminalProfileIcon
     TerminalProfileColorScheme = $TerminalProfileColorScheme
     TerminalProfileBackground  = $TerminalProfileBackground
+    GpuEnabled                 = $GpuEnabled
 }
 
 Test-Sandbox -Config $Config
