@@ -1,8 +1,8 @@
 # Manual Setup Guide
 
-Step-by-step commands to build the Claude Sandbox from scratch without the installer script. Useful for understanding what the installer does, troubleshooting, or customising the setup.
+Step-by-step commands to build the Claude Sandbox without the installer. Useful for understanding what the installer does, troubleshooting, or customising the setup.
 
-All PowerShell commands run from an **elevated** (Administrator) prompt on the Windows host. Adjust paths and names to match your `sandbox-config.ps1` values.
+All PowerShell commands run from an **elevated** (Administrator) prompt. Adjust paths and names to match your `sandbox-config.ps1` values.
 
 ---
 
@@ -23,7 +23,7 @@ $ContainerId = podman create debian:bookworm-slim
 podman export $ContainerId --output="C:\temp\claude-sandbox.tar"
 podman rm $ContainerId
 
-# Import the tarball as a new WSL distro
+# Import as a WSL distro
 New-Item -ItemType Directory -Force -Path "D:\WSL\claude-sandbox"
 wsl --import claude-sandbox "D:\WSL\claude-sandbox" "C:\temp\claude-sandbox.tar" --version 2
 
@@ -33,7 +33,7 @@ wsl -l -v
 
 ---
 
-## 3. Configure the Distro (as root)
+## 3. Configure the Distro
 
 ```powershell
 wsl -d claude-sandbox -u root
@@ -42,7 +42,7 @@ wsl -d claude-sandbox -u root
 Inside WSL as root:
 
 ```bash
-# Update and install required packages
+# Update and install packages
 apt update && apt upgrade -y
 apt install -y sudo curl nano bubblewrap socat fzf
 
@@ -51,7 +51,11 @@ useradd -m -s /bin/bash dev
 usermod -aG sudo dev
 passwd dev
 
-# Write wsl.conf
+# Configure sudo password feedback
+echo 'Defaults pwfeedback' > /etc/sudoers.d/pwfeedback
+chmod 0440 /etc/sudoers.d/pwfeedback
+
+# Write wsl.conf (gpu enabled = false by default, change if needed)
 cat > /etc/wsl.conf << 'EOF'
 [boot]
 systemd = true
@@ -61,8 +65,6 @@ protectBinfmt = true
 enabled = false
 mountFsTab = true
 root = /mnt/
-uid = 1000
-gid = 1000
 
 [network]
 hostname = claude-sandbox
@@ -77,7 +79,7 @@ appendWindowsPath = false
 default = dev
 
 [gpu]
-enabled = true
+enabled = false
 
 [time]
 useWindowsTimezone = true
@@ -92,40 +94,23 @@ exit
 
 ```powershell
 wsl --terminate claude-sandbox
-# Wait a few seconds, then re-enter as the default user
+# Wait a few seconds, then re-enter
 wsl -d claude-sandbox
 ```
 
 ---
 
-## 5. Install Claude Code (as user)
+## 5. Set Up Claude Persistence
+
+Mounts a Windows folder as `~/.claude` so login, settings, and memory survive distro rebuilds.
 
 ```bash
-# Add ~/.local/bin to PATH
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-
-# Install Claude Code
-curl -fsSL https://claude.ai/install.sh | bash
-```
-
----
-
-## 6. Set Up Claude Persistence
-
-This mounts a Windows folder as `~/.claude` so your Claude login, settings, and memory survive distro rebuilds.
-
-```bash
-# Create the mount point
 mkdir -p ~/.claude
-```
 
-Then as root, add the fstab entry (replace `D:\.claude` with your actual Windows path):
+# Add fstab entry (replace D:\.claude with your path, use your actual uid/gid)
+echo "D:\.claude /home/dev/.claude drvfs uid=$(id -u),gid=$(id -g),umask=022,metadata 0 0" | sudo tee -a /etc/fstab
 
-```bash
-echo 'D:\.claude /home/dev/.claude drvfs uid=1000,gid=1000,umask=022,metadata 0 0' | sudo tee -a /etc/fstab
-
-# Symlink .claude.json so it's also persisted
+# Symlink .claude.json for persistence
 ln -sf ~/.claude/.claude.json ~/.claude.json
 ```
 
@@ -138,34 +123,37 @@ wsl -d claude-sandbox
 
 ---
 
-## 7. Deploy the Bashrc Profile
+## 6. Install Claude Code
 
-The profile replaces `~/.bashrc`. Copy `ClaudeSandbox/Assets/profiles/default.sh` from the repo into the distro:
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+---
+
+## 7. Create Directories
+
+```bash
+mkdir -p ~/projects
+mkdir -p ~/.bashrc.d
+```
+
+---
+
+## 8. Deploy the Bashrc Profile
+
+Copy `ClaudeSandbox/Assets/profiles/default.sh` from the repo (this replaces `~/.bashrc` entirely and includes PATH, umask, and workflow sourcing):
 
 ```powershell
 Copy-Item ".\ClaudeSandbox\Assets\profiles\default.sh" "\\wsl$\claude-sandbox\home\dev\.bashrc"
 ```
 
-Or manually ensure `~/.bashrc` ends with:
-
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-
-# Load workflow
-[ -f "$HOME/.bashrc.d/workflow.sh" ] && source "$HOME/.bashrc.d/workflow.sh"
-```
-
 ---
 
-## 8. Deploy the Workflow
-
-The workflow provides `index-projects`, `mount-project`, `switch-project`, and the welcome banner.
+## 9. Deploy the Workflow
 
 ```powershell
-# Create the .bashrc.d directory
-wsl -d claude-sandbox -u dev -- bash -c "mkdir -p ~/.bashrc.d"
-
-# Copy and patch the workflow (replace the token with your Windows projects path)
+# Copy and patch the workflow (replace token with your Windows projects path)
 (Get-Content ".\ClaudeSandbox\Assets\workflows\default.sh" -Raw) `
     -replace "__PROJECTS_DRVFS__", "D:\\Projects" |
     Set-Content -NoNewline "\\wsl$\claude-sandbox\home\dev\.bashrc.d\workflow.sh"
@@ -173,45 +161,44 @@ wsl -d claude-sandbox -u dev -- bash -c "mkdir -p ~/.bashrc.d"
 
 ---
 
-## 9. Verify
+## 10. Verify
 
 ```bash
-# Reload shell
 source ~/.bashrc
 
-# Should print the welcome banner and Claude version
-# Test project commands
+# Should print the welcome banner
 index-projects
 switch-project <tab>
 ```
 
+Or from PowerShell:
+
+```powershell
+.\Verify-ClaudeSandbox.ps1
+```
+
 ---
 
-## 10. Add a Windows Terminal Profile (optional)
-
-The installer does this automatically, but you can run it manually by importing the module:
+## 11. Windows Terminal Profile (optional)
 
 ```powershell
 Import-Module .\ClaudeSandbox\ClaudeSandbox.psd1 -Force
 . .\sandbox-config.ps1
-$Config = @{ DistroName = $DistroName; TerminalProfileName = $TerminalProfileName; TerminalProfileIcon = $TerminalProfileIcon; TerminalProfileColorScheme = $TerminalProfileColorScheme; TerminalProfileBackground = $TerminalProfileBackground }
+$Config = @{
+    DistroName = $DistroName
+    TerminalProfileName = $TerminalProfileName
+    TerminalProfileIcon = $TerminalProfileIcon
+    TerminalProfileColorScheme = $TerminalProfileColorScheme
+    TerminalProfileBackground = $TerminalProfileBackground
+}
 Add-TerminalProfile -Config $Config
-```
-
-This reads the terminal profile settings from the `$Config` hashtable and patches the Windows Terminal fragment file for the distro as well as the main `settings.json` dropdown list.
-
-To remove the profile entry:
-
-```powershell
-Remove-TerminalProfile -Config $Config
 ```
 
 ---
 
-
 ## Troubleshooting
 
-**Claude sandbox mode returns "unsupported"** — user namespaces may be disabled in the WSL2 kernel:
+**Claude sandbox mode returns "unsupported"** - user namespaces may be disabled:
 
 ```bash
 cat /proc/sys/kernel/unprivileged_userns_clone   # should be 1
@@ -221,6 +208,6 @@ echo 'kernel.unprivileged_userns_clone=1' | sudo tee /etc/sysctl.d/99-userns.con
 sudo sysctl --system
 ```
 
-**Mount fails on `index-projects`** — check that `PROJECTS_DRVFS` in `~/.bashrc.d/workflow.sh` matches your actual Windows projects path.
+**Mount fails on `index-projects`** - check that `PROJECTS_DRVFS` in `~/.bashrc.d/workflow.sh` matches your actual Windows projects path.
 
-**Claude not found after install** — ensure `~/.local/bin` is on your PATH (`echo $PATH`) and that the install completed without errors.
+**Claude not found after install** - ensure `~/.local/bin` is on your PATH (`echo $PATH`).

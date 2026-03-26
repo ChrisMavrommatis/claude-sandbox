@@ -1,93 +1,101 @@
-# Using Claude Safely
+# Security Guide
 
-## How the sandbox protects you
-
-Claude runs inside an isolated Linux environment that is intentionally cut off from the rest of your Windows machine. Your Windows files are invisible to Claude by default — no project is accessible until you explicitly mount it. Claude also cannot see or call anything on your Windows host, so there is no risk of it accidentally (or otherwise) touching files outside the sandbox.
-
-Think of it as a locked room. You decide what goes in, and nothing leaks out.
+How to use Claude safely inside the sandbox.
 
 ---
 
-## Only give Claude access to what it needs
+## Mount control
 
-Projects are not mounted automatically. You bring them in when you need them and remove them when you are done:
+Projects are not mounted automatically. You choose what Claude can access:
 
 ```bash
-mount-project my-app --ro    # read-only: Claude can look but not touch
-mount-project my-app --rw    # read-write: Claude can make changes
-unmount-project my-app       # close the door when you're done
+mount-project my-app --ro    # read-only
+mount-project my-app --rw    # read-write
+unmount-project my-app       # remove access
 ```
 
-If you are just asking Claude to review or explain code, mount read-only. Claude will still be able to read every file — it just cannot make any changes.
+Use `--ro` when Claude only needs to read (reviews, explanations). Project names are validated to prevent path traversal.
 
 ---
 
-## Control how much Claude can do in a session
+## Permission modes
 
-You can dial Claude's autonomy up or down depending on how much you trust the task:
+Control Claude's autonomy per session:
 
 ```bash
-claude --permission-mode plan          # Claude can only read and plan — no changes at all
-claude --permission-mode acceptEdits   # Claude can edit files freely, but will still ask before running commands
-claude --dangerously-skip-permissions  # Claude acts without asking — fine here since the sandbox already limits what it can reach
+claude --permission-mode plan          # read and plan only, no changes
+claude --permission-mode acceptEdits   # edit files freely, ask before commands
+claude --dangerously-skip-permissions  # no prompts (safe here - sandbox limits reach)
 ```
 
-`plan` mode is a good starting point when you are exploring a new project or asking Claude to figure out a complex problem. You review the plan, then decide whether to let it proceed.
-
-`--dangerously-skip-permissions` sounds alarming but is reasonable inside this sandbox — the isolation is handled at the environment level, not by the prompts.
+Start with `plan` for unfamiliar projects.
 
 ---
 
-## Use a separate branch for big changes
+## Sandbox mode
 
-If Claude is about to make a lot of changes and you are not sure you will like all of them, start a worktree session:
+Enable filesystem and network isolation for bash commands:
+
+```
+/sandbox
+```
+
+This uses bubblewrap to restrict what commands can access. Network requests are filtered by domain. Combined with the WSL2 isolation, this provides defense-in-depth against prompt injection and malicious dependencies.
+
+---
+
+## Worktree isolation
+
+For large or risky changes, use a separate branch:
 
 ```bash
 claude -w
 ```
 
-Claude works on a separate branch. Your main codebase is untouched until you choose to merge. If the result is not what you wanted, you can discard the whole branch without any cleanup.
+Main stays untouched until you merge. Discard the branch if the result isn't what you wanted.
 
 ---
 
-## Tell Claude what is off-limits in each project
+## Project rules
 
-Create a `CLAUDE.md` file in the root of your project. Claude reads it automatically at the start of every session. Use it to set clear rules:
+Create a `CLAUDE.md` in any project root. Claude reads it at the start of every session:
 
 ```markdown
-## Off-limits
+## Rules
 - Never modify anything in src/legacy/
-- Never read or print the contents of .env files
-- Do not commit directly to main — always use a feature branch
+- Never read or print .env files
+- Always use feature branches, never commit to main
 ```
-
-This does not require any technical configuration — Claude understands plain instructions and will follow them.
 
 ---
 
-## Block specific actions permanently
+## Deny lists
 
-If there are commands you never want Claude to run in any project, you can block them in `~/.claude/settings.json`:
+Block commands permanently in `~/.claude/settings.json`:
 
 ```json
 {
   "permissions": {
-    "deny": ["Bash(rm -rf:*)", "Bash(curl:*)", "Bash(wget:*)"]
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(curl *)",
+      "Bash(wget *)"
+    ]
   }
 }
 ```
 
-You can also do this per project by placing the same file in `<project>/.claude/settings.json`.
+Per-project: place the same file in `<project>/.claude/settings.json`.
 
 ---
 
-## Check what Claude did before you move on
+## Review changes
 
-It only takes a few seconds and saves a lot of headaches:
+Before moving on:
 
 ```bash
-git diff              # see every file that changed
+git diff              # see what changed
 git log --oneline -5  # see what was committed
 ```
 
-If something looks wrong, you can undo the last commit with `git reset HEAD~1` and the files will go back to how they were.
+Undo the last commit: `git reset HEAD~1`.
