@@ -99,8 +99,11 @@ function Install-Sandbox {
 
     # Create user and add to sudo group [I-002, I-003, S-007]
     Write-Info "Creating user '$Username'..."
+    Invoke-InSandbox $DistroName "useradd -m -s /bin/bash $Username && usermod -aG sudo $Username"
+    # Set password via temp file piped to chpasswd to avoid password in process list
     $escapedPassword = $UserPassword -replace "'", "'\'''" -replace '\$', '\$' -replace '`', '\`' -replace '"', '\"'
-    Invoke-InSandbox $DistroName "useradd -m -s /bin/bash $Username && printf '%s:%s\n' '$Username' '$escapedPassword' | chpasswd && usermod -aG sudo $Username"
+    Write-FileToDistro $DistroName "/tmp/.pw" "$Username`:$escapedPassword"
+    Invoke-InSandbox $DistroName "chpasswd < /tmp/.pw && rm -f /tmp/.pw"
     Write-Ok "User '$Username' created and added to sudo group"
 
     # Deploy wsl.conf [I-005, S-001, S-002, S-003, S-004, S-005, S-006]
@@ -141,9 +144,9 @@ function Install-Sandbox {
     Restart-Sandbox $DistroName
     Write-Ok "Distro restarted"
 
-    # Configure sudo password feedback [S-008]
+    # Configure sudo password feedback [S-008, S-016]
     Write-Info "Configuring sudo password feedback..."
-    Invoke-InSandbox $DistroName "echo 'Defaults pwfeedback' >> /etc/sudoers.d/pwfeedback" "root"
+    Invoke-InSandbox $DistroName "echo 'Defaults pwfeedback' > /etc/sudoers.d/pwfeedback && chmod 0440 /etc/sudoers.d/pwfeedback" "root"
     Write-Ok "sudo password feedback enabled"
 
     # Install Claude Code [I-012]
@@ -175,7 +178,6 @@ function Install-Sandbox {
     # -- Step 6: Cleanup ------------------------------------------------------------------
     Write-Step "Step 6: Cleaning up temporary files..."
     Remove-Item $tempDir -Recurse -ErrorAction SilentlyContinue
-    Invoke-InSandbox $DistroName "rm -f /tmp/claude-fstab.tmp"
     Write-Ok "Step 6 Complete: Temporary files cleaned up"
 
     # -- Step 7: Verify installation -----------------------------------------------------

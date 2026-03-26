@@ -277,6 +277,49 @@ function Test-Sandbox {
         Write-CheckResult "S-014" "WARN" "GPU setting in wsl.conf does not match config (expected $gpuExpected)"
     }
 
+    # S-015: wsl.conf owned by root and not world-writable
+    $wslConfPerms = Get-FromSandbox "stat -c '%U %a' /etc/wsl.conf 2>/dev/null"
+    if ($wslConfPerms -and $wslConfPerms.Trim() -match '^root \d[0-5][0-5]$') {
+        Write-CheckResult "S-015" "PASS" "wsl.conf permissions secure"
+    } else {
+        Write-CheckResult "S-015" "FAIL" "wsl.conf has wrong owner or is world-writable"
+    }
+
+    # S-016: sudoers.d/pwfeedback has correct permissions (0440)
+    if (Test-InSandbox "test -f /etc/sudoers.d/pwfeedback") {
+        $sudoPerms = Get-FromSandbox "stat -c '%U %a' /etc/sudoers.d/pwfeedback 2>/dev/null"
+        if ($sudoPerms -and $sudoPerms.Trim() -match '^root 440$') {
+            Write-CheckResult "S-016" "PASS" "pwfeedback permissions correct (0440)"
+        } else {
+            Write-CheckResult "S-016" "FAIL" "pwfeedback has wrong permissions (expected root 440)"
+        }
+    } else {
+        Write-CheckResult "S-016" "WARN" "pwfeedback not present, skipping permission check"
+    }
+
+    # S-017: umask 022 enforced in .bashrc
+    $umaskCheck = Get-FromSandbox "grep -q 'umask 022' /home/$Username/.bashrc 2>/dev/null && echo yes"
+    if ($umaskCheck -and $umaskCheck.Trim() -eq "yes") {
+        Write-CheckResult "S-017" "PASS" "umask 022 set in profile"
+    } else {
+        Write-CheckResult "S-017" "FAIL" "umask 022 not found in profile"
+    }
+
+    # S-019: fstab-only mounts (mountFsTab = true in wsl.conf)
+    if ($wslConfText -match 'mountFsTab\s*=\s*true') {
+        Write-CheckResult "S-019" "PASS" "fstab-only mounts enabled"
+    } else {
+        Write-CheckResult "S-019" "FAIL" "mountFsTab not set to true"
+    }
+
+    # S-018: History timestamps enabled for audit trail
+    $histCheck = Get-FromSandbox "grep -q 'HISTTIMEFORMAT' /home/$Username/.bashrc 2>/dev/null && echo yes"
+    if ($histCheck -and $histCheck.Trim() -eq "yes") {
+        Write-CheckResult "S-018" "PASS" "History timestamps enabled"
+    } else {
+        Write-CheckResult "S-018" "FAIL" "HISTTIMEFORMAT not set in profile"
+    }
+
     # =====================================================================================
     # Summary
     # =====================================================================================

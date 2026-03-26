@@ -1,201 +1,408 @@
-# Security Posture - Details
+# Security Posture - Research Notes
 
-> Summary view: [security-posture.md](security-posture.md)
+Research and implementation notes for security items not yet supported. Items are removed from this file as they get implemented. See [security-posture.md](security-posture.md) for the full list.
 
----
-
-## Controls In Place
-
-### Host Isolation
-
-- WSL2 hypervisor boundary separates the sandbox from the Windows host
-- Windows interop disabled (`interop.enabled = false`) - cannot run Windows executables from inside the distro `[S-001]`
-- Windows PATH excluded (`appendWindowsPath = false`) - no Windows executables leak into Linux `$PATH` `[S-002]`
-- Automatic Windows drive mounting disabled (`automount.enabled = false`) `[S-003]`
-- `protectBinfmt = true` - prevents the distro from registering binary formats on the host kernel (blocks a class of container escape) `[S-004]`
-
-### Filesystem
-
-- No Windows drives auto-mounted at boot; all access is on-demand via explicit commands
-- Only `/etc/fstab` entries are mounted (`mountFsTab = true`)
-- Persistence mount (`~/.claude`) uses `drvfs` with dynamic `uid`/`gid`, `umask=022`, `metadata` `[S-010, S-011]`
-- Symlink `~/.claude.json` -> `~/.claude/.claude.json` ensures Claude's config survives distro rebuilds `[I-010]`
-- Project mounts support explicit `--ro` (read-only) or `--rw` (read-write) modes
-- `index-projects` mounts the Windows projects folder read-only for directory listing, then unmounts
-- Remount detection: if a project is already mounted with a different mode it is unmounted and remounted with the correct mode
-- `unmount-project` changes out of the project directory before unmounting to avoid "device busy" errors
-- Project name validation rejects names containing `/`, `\`, or `..` to prevent path traversal `[S-012]`
-
-### User & Privilege
-
-- Default WSL user is non-root `[S-006]`
-- Sudo requires a password - the user is in the `sudo` group but `NOPASSWD` is not set `[S-007]`
-- Sudo password feedback enabled via `/etc/sudoers.d/pwfeedback` `[S-008]`
-- Home directory created with `useradd -m` (standard ownership)
-- Default umask `0022` - new files are not world-writable
-- Installer warns if password is still the default value and requires confirmation to proceed `[S-013]`
-
-### Process Containment
-
-- systemd runs as PID 1 (proper cgroup management and service supervision) `[S-005]`
-- bubblewrap (`bwrap`) installed for Claude's internal sandbox mode (Linux namespace isolation)
-- Unprivileged user namespaces available so bubblewrap works without root `[S-009]`
-
-### GPU Access
-
-- GPU passthrough controlled by `$GpuEnabled` config variable (default: `$false`) `[S-014]`
-- Only enabled when explicitly set by user - reduces attack surface when GPU is not needed
-
-### Workflow Safeguards
-
-- `__TOKEN__` placeholders (e.g. `__PROJECTS_DRVFS__`, `__GpuEnabled__`) are replaced with actual values at deploy time - no paths or settings hardcoded in shell scripts
-- Scripts are normalised to LF line endings and written as UTF-8 without BOM before being copied into the distro
-- Profile and workflow scripts are only sourced if the file exists (`[ -f ... ] && source`)
-- Bash profiles skip all setup for non-interactive shells
-
-### File Permissions
-
-- Persistence mount enforces ownership and `umask=022` via fstab mount options
-- Project mounts enforce the same ownership and umask regardless of the Windows-side permissions
-
-### Application Layer
-
-- Claude permission modes let you dial autonomy per session:
-  - `plan` - read and plan only, no changes
-  - `acceptEdits` - can edit files, asks before running commands
-  - `--dangerously-skip-permissions` - full autonomy (safe here because isolation is at the environment level)
-- `CLAUDE.md` per-project policies: declare off-limits paths, branch rules, or any plain-language constraints
-- `~/.claude/settings.json` deny lists permanently block specific tools or commands (e.g. `Bash(rm -rf:*)`)
-- Worktree mode (`claude -w`) puts Claude on a separate branch - main is untouched until you merge
-- Git provides a full, auditable trail of every change Claude makes
-
-### Admin Operations
-
-- All PowerShell scripts check for Administrator elevation at startup and exit immediately if not elevated
-- Required source files are validated with `Test-Path` before the installer does any work
-- Uninstall requires explicit confirmation before each destructive step (default answer: No)
-- Persistence directory (`$ClaudePersistenceDir`) is explicitly preserved on uninstall - never deleted
-- Temporary files (container rootfs tarball, fstab staging fragments) are deleted at the end of installation
-- The container and pulled image are removed from the container runtime after the rootfs is exported
-
-### Verification & Updates
-
-- `Test-Sandbox` runs 26 automated checks (12 installation, 14 security) identified by codes `I-001` through `I-012` and `S-001` through `S-014`
-- Verification runs automatically at the end of installation (Step 7)
-- `Update-Sandbox` provides a patch mechanism: updates packages, re-deploys profiles, and verifies
+Ordered by impact: HIGH first, then MEDIUM, then LOW.
 
 ---
 
-## Gaps & Missing Controls
+## Sandbox network proxy `HIGH`
 
-### 1 - No outbound network filtering `HIGH`
+**Gap:** Claude's sandbox mode includes a proxy-based network filter that restricts which domains bash commands can reach. We install the prerequisites (bubblewrap + socat) but don't configure `allowedDomains` or enable the network proxy.
 
-No firewall rules, DNS filtering, or proxy configuration. Any process inside the sandbox can reach any internet host freely. A compromised dependency or tool can exfiltrate data with nothing blocking it.
+**What it is:** When sandbox mode is enabled with `/sandbox`, Claude runs bash commands through an OS-level sandbox (bubblewrap on Linux). Network access goes through a proxy that only allows connections to explicitly approved domains. New domains trigger a permission prompt.
 
-**What would fix it:** A per-distro `iptables`/`nftables` allowlist, or a `.wslconfig` HTTP proxy pointing to an inspecting proxy on the host.
+**Why this matters:** This is different from iptables-level network filtering. The sandbox proxy works reliably on WSL2 because it's application-level, not kernel-level. It only applies to sandboxed bash commands, not to Claude's built-in tools.
 
----
+**What to look for:**
 
-### 2 - No resource limits `MEDIUM`
+- Configure `sandbox.network.allowedDomains` in managed settings to pre-approve needed domains
+- Set `sandbox.enabled = true` in managed settings to enable by default
+- Consider `sandbox.network.allowManagedDomainsOnly = true` to prevent users from adding domains
+- socat is required for the network proxy - already installed by our sandbox
 
-No CPU, memory, or disk quotas applied to the distro. A runaway process (e.g. an infinite loop, a large build) can exhaust host RAM or disk. No `.wslconfig` template is provided or documented.
+**Considerations:**
 
-**What would fix it:** A documented `.wslconfig` with `memory=`, `processors=`, and `swap=` values. Optionally systemd slice limits inside the distro.
+- This partially closes the "outbound network filtering" gap for bash commands
+- Does NOT filter Claude's own WebFetch or other built-in tools - those need separate `WebFetch(domain:...)` rules
+- Need to determine a sensible default domain allowlist (apt repos, Claude API, GitHub, npm registry)
+- Too restrictive breaks `apt-get update`, `npm install`, `pip install`, etc.
 
----
+**Implementation approach:**
 
-### 3 - No audit logging `MEDIUM`
-
-No `auditd`, `syslog` forwarding, or mount event tracking beyond what git records. If something goes wrong there is no record of what commands ran, what was mounted, or what processes were spawned.
-
-**What would fix it:** Enable `auditd` or `rsyslog` in the distro. Forward logs to a file on the persistence mount so they survive rebuilds.
-
----
-
-### 4 - No image digest pinning `MEDIUM`
-
-`debian:bookworm-slim` is a floating tag. Each install pulls whatever the registry serves at that moment. There is no `@sha256:` digest and no signature check.
-
-**What would fix it:** Pin the image to a known digest in `sandbox-config.ps1` (e.g. `debian:bookworm-slim@sha256:<hash>`). Re-pin intentionally when updating.
+- Add sandbox settings to the managed settings file (`/etc/claude-code/managed-settings.json`)
+- Pre-approve essential domains: `deb.debian.org`, `*.anthropic.com`, `github.com`, `registry.npmjs.org`
+- Set `sandbox.failIfUnavailable = true` to enforce sandboxing
+- Deploy during `Install-Sandbox`
 
 ---
 
-### 5 - Claude installer uses curl-pipe-bash `MEDIUM`
+## Outbound network filtering (host-level) `HIGH`
 
-The installer runs `curl -fsSL https://claude.ai/install.sh | bash` with no checksum or signature verification. HTTPS protects the download in transit but does not guarantee the script hasn't changed between installs or that the server wasn't compromised.
+**Gap:** Any process in the sandbox can reach any internet host. A compromised dependency or tool can exfiltrate data with nothing blocking it.
 
-**What would fix it:** Download the script to a temp file, display its hash, and require confirmation before executing - or use an offline package if one becomes available.
+**Why it's hard:** WSL2 runs in a lightweight VM (backed by the Hyper-V hypervisor) with NAT networking managed by Windows. The network adapter resets on distro restart, so iptables rules don't persist without a systemd service. In mirrored networking mode (newer Windows builds), the distro shares the host's interfaces directly, making iptables even less effective.
 
----
+**Considerations:**
 
-### 6 - No session timeout `LOW`
+- iptables inside WSL2 is unreliable across restarts and networking modes
+- `.wslconfig` supports an HTTP proxy setting but requires a proxy server running on the host
+- Windows Firewall can filter WSL2 traffic but the VM's IP range changes on every WSL restart
+- DNS filtering (e.g. Pi-hole on host) would catch DNS-based exfiltration but not direct IP connections
+- The sandbox network proxy (above) partially addresses this for bash commands
 
-No `TMOUT` variable is set in any profile. Idle shells stay open indefinitely. On a shared or unattended machine this leaves an authenticated session exposed.
+**Best approach:** Document recommended Windows Firewall rules or host-side proxy setup in `docs/security.md`. Don't try to automate it from inside the sandbox. This is fundamentally a host-level concern.
 
-**What would fix it:** Set `TMOUT=900` (15 minutes) in `profiles/default.sh` or document it as a recommended hardening step.
-
----
-
-### 7 - No secret management guidance `LOW`
-
-No documentation or tooling for handling API keys, tokens, or `.env` files. Users may store secrets inside the persistence mount or checked-in project files without realising the exposure.
-
-**What would fix it:** A section in `docs/security.md` covering where not to put secrets, how to use environment variables safely, and recommending a tool like `pass` or `age`.
+**Blocked by:** WSL2 networking architecture. No clean self-contained solution exists.
 
 ---
 
-### 8 - No backup strategy documented `LOW`
+## Managed settings file `MEDIUM`
 
-The persistence mount (`~/.claude`) survives distro rebuilds but there is no guidance on how often to back it up, how to verify its integrity, or how to recover if the Windows folder is deleted or corrupted.
+**Gap:** No organization-wide permission enforcement. Users can configure Claude's permissions however they want. A managed settings file would set default deny rules that apply to all sessions.
 
-**What would fix it:** A brief section in the docs noting what lives in the persistence directory and recommending a backup approach (e.g. robocopy to a second location, or inclusion in an existing backup job).
+**What it is:** Claude Code reads `/etc/claude-code/managed-settings.json` (on Linux/WSL) as a managed settings file. Unlike user settings, managed settings cannot be overridden by user or project settings. This can enforce permission deny lists, sandbox configuration, hook policies, and more. Also supports a `managed-settings.d/` drop-in directory for policy fragments.
 
----
+**What to look for:**
 
-## Additional Risks (identified during security review, not yet in gap list)
+- Deploy alongside the managed CLAUDE.md during `Install-Sandbox`
+- Permission deny rules (e.g., `Bash(rm -rf /*)`)
+- Sandbox configuration (`sandbox.enabled`, `sandbox.failIfUnavailable`, `sandbox.network.allowedDomains`)
+- `disableBypassPermissionsMode` to prevent bypassing permissions
+- `allowManagedHooksOnly` to prevent user hooks from overriding managed hooks
+- Same JSON schema as regular `settings.json` - use `$schema` for validation
 
-### 9 - File permissions not verified `MEDIUM`
+**Considerations:**
 
-Test-Sandbox checks that files exist but not their permissions. `/etc/wsl.conf` and `/etc/sudoers.d/pwfeedback` should be owned by root and not world-writable. A non-root user could modify these to weaken security.
+- Too restrictive breaks real workflows (e.g., blocking curl prevents installing packages)
+- Should start minimal - sandbox config + a few deny rules
+- Can bundle sandbox network proxy, fail-if-unavailable, bypass mode disable, and deny rules in one file
+- Can be updated via `Update-Sandbox`
+- Drop-in directory (`managed-settings.d/`) allows modular policy deployment
 
-**What would fix it:** Add S-015 and S-016 checks to Test-Sandbox verifying ownership and permission bits. See [security-improvements.md](security-improvements.md) item A.
+**Implementation approach:**
 
----
-
-### 10 - No umask enforcement in shell profiles `LOW`
-
-Global umask=022 is set at the mount level but the shell profiles don't reinforce it. A user could change umask to 0, making new files world-readable/writable.
-
-**What would fix it:** Add explicit `umask 022` to both `default.sh` and `pretty.sh` profiles. Add S-017 check. See [security-improvements.md](security-improvements.md) item B.
-
----
-
-### 11 - Symlink escape from project mounts `LOW-MEDIUM`
-
-Projects mounted via drvfs at `/home/dev/projects/<name>`. Malicious code in a project could create Linux symlinks pointing outside the project directory (e.g. `../../.claude`), potentially accessing the persistence mount or other sensitive paths.
-
-**What would fix it:** Add `-o nosymfollow` to mount options if supported by drvfs, or validate resolved paths don't escape `$PROJECTS_HOME`. See [security-improvements.md](security-improvements.md) item J.
+- Create `ClaudeSandbox/Assets/managed-settings.json` with baseline configuration
+- Deploy to `/etc/claude-code/managed-settings.json` during install
+- Bundle: sandbox enabled + fail-if-unavailable + domain allowlist + deny rules
+- Also deploy managed CLAUDE.md in the same step
 
 ---
 
-### 12 - Password visible in process list during install `LOW`
+## Managed policy CLAUDE.md `MEDIUM`
 
-`chpasswd` receives the password as a command-line argument via `Invoke-InSandbox`, which could briefly appear in the process list.
+**Gap:** No organization-wide defaults for Claude behavior inside the sandbox. Per-project `CLAUDE.md` files only apply to individual projects - there's no baseline that applies to every session.
 
-**What would fix it:** Pipe password to chpasswd via stdin instead of command arg. See [security-improvements.md](security-improvements.md) item F.
+**What it is:** Claude Code supports a managed policy file at `/etc/claude-code/CLAUDE.md` (on Linux/WSL). This is read automatically by Claude at the start of every session, before any project-level `CLAUDE.md`. It cannot be overridden by users.
+
+**What to look for:**
+
+- Deploy the file during `Install-Sandbox` to `/etc/claude-code/CLAUDE.md`
+- Content could include: security rules (never commit secrets, never modify system config), code style defaults, sandbox-specific constraints (don't touch /etc/wsl.conf, don't modify persistence mount)
+- Could also be re-deployed by `Update-Sandbox` so policy updates propagate
+
+**Considerations:**
+
+- Content needs careful drafting - too restrictive breaks workflows, too loose adds no value
+- Should be a separate asset file in `ClaudeSandbox/Assets/` with its own deploy step
+- May want a `Set-SandboxPolicy` function or fold into existing install/update flow
+- Need to decide what rules are universal vs what belongs in per-project CLAUDE.md
+
+**Implementation approach:**
+
+- Create `ClaudeSandbox/Assets/claude-policy.md` with baseline rules
+- Add a deploy step in `Install-Sandbox`: `mkdir -p /etc/claude-code && cp claude-policy.md /etc/claude-code/CLAUDE.md`
+- Add an `I-013` check in `Test-Sandbox` to verify the file exists
+- Re-deploy during `Update-Sandbox`
 
 ---
 
-### 13 - No failed sudo attempt limiting `LOW`
+## Sandbox fail-if-unavailable `MEDIUM`
 
-No PAM lockout configuration. A process could brute-force the sudo password with no rate limiting or account lockout.
+**Gap:** If bubblewrap fails to start, Claude silently falls back to running commands without sandboxing. No indication to the user that sandbox protection is missing.
 
-**Not planned:** Risk of locking yourself out of the sandbox outweighs the benefit for a local dev environment.
+**What it is:** Setting `sandbox.failIfUnavailable = true` in settings makes Claude refuse to run bash commands if the sandbox can't start, rather than silently falling back to unsandboxed execution.
+
+**What to look for:**
+
+- Add to managed settings file
+- Combined with `sandbox.enabled = true`
+- Ensures the security guarantee is never silently dropped
+
+**Implementation approach:**
+
+- Part of the managed settings deployment. One line in the settings JSON.
 
 ---
 
-### 14 - Claude Code auto-updates outside sandbox control `LOW`
+## Disable bypass permissions mode `MEDIUM`
 
-Claude Code installed via curl-pipe-bash updates itself automatically. Updates could introduce vulnerabilities. No version pinning or rollback mechanism exists.
+**Gap:** Users can run Claude with `bypassPermissions` mode which skips all permission prompts. In a controlled sandbox this might be acceptable, but managed settings can prevent it.
 
-**Not fixable:** External tool managed by Anthropic. No practical mechanism to pin versions.
+**What it is:** Setting `permissions.disableBypassPermissionsMode = "disable"` in managed settings prevents users from activating bypass mode.
+
+**What to look for:**
+
+- Add to managed settings file
+- Also consider `disableAutoMode` if auto mode is not desired
+
+**Considerations:**
+
+- In our sandbox, `bypassPermissions` is relatively safe because the environment itself is isolated
+- Blocking it adds defense-in-depth but reduces user flexibility
+- Decision: deploy it or not? Depends on how locked-down the user wants the sandbox
+
+**Implementation approach:**
+
+- Part of the managed settings deployment. One line in the settings JSON.
+
+---
+
+## Managed-only permission rules `MEDIUM`
+
+**Gap:** Users can add their own `allow` rules in user or project settings, potentially widening permissions beyond what was intended.
+
+**What it is:** Setting `allowManagedPermissionRulesOnly = true` in managed settings prevents user and project settings from defining allow/ask/deny rules. Only managed rules apply.
+
+**Considerations:**
+
+- Very restrictive - users can't customize permissions at all
+- Better suited for enterprise/team environments than personal dev sandboxes
+- Alternative: don't use this, and rely on deny rules in managed settings (deny can't be overridden regardless)
+
+**Implementation approach:**
+
+- Part of the managed settings deployment. Optional - may be too restrictive for most users.
+
+---
+
+## PreToolUse hooks `MEDIUM`
+
+**Gap:** No runtime validation of tool calls beyond static deny lists. Hooks can inspect and block specific tool calls dynamically.
+
+**What it is:** Claude Code hooks that run before each tool call. A hook script can inspect the tool name and arguments, then return allow/deny/prompt. More powerful than static rules because they can run arbitrary logic.
+
+**What to look for:**
+
+- Configure in managed settings under `hooks.PreToolUse`
+- Hook script receives tool name and arguments as JSON
+- Exit code 0 = allow, 1 = prompt, 2 = block
+- Deny rules still take precedence even if hook returns allow
+- `allowManagedHooksOnly = true` prevents user hooks from overriding managed hooks
+
+**Considerations:**
+
+- Adds a shell script execution on every tool call - minor performance impact
+- Need to write and test the hook script carefully
+- Could validate: file paths, command patterns, network destinations
+- Useful for blocking specific dangerous patterns that static rules can't express
+
+**Implementation approach:**
+
+- Create a hook script in `ClaudeSandbox/Assets/`
+- Deploy to `/etc/claude-code/` during install
+- Configure in managed settings
+- Start simple - block a few high-risk patterns, expand over time
+
+---
+
+## Resource limits `MEDIUM`
+
+**Gap:** No CPU, memory, or disk quotas. A runaway process can exhaust host resources.
+
+**What to look for:**
+
+- `.wslconfig` in `%USERPROFILE%` controls `memory`, `processors`, `swap` for ALL WSL distros
+- Deploying it affects every distro on the machine, not just ours - this is the main risk
+- systemd slice limits (`MemoryMax`, `CPUQuota`) work inside the distro but need a service file
+
+**Considerations:**
+
+- `.wslconfig` is global - could break the user's other WSL distros if they have different needs
+- Should generate a template file but NOT auto-deploy it. Let the user review and place it themselves.
+- Default values: `memory=4GB`, `processors=2`, `swap=2GB` are reasonable for dev work
+- Add config variables to `sandbox-config.ps1` but only deploy if the user explicitly opts in
+
+**Implementation approach:**
+
+- Ship `ClaudeSandbox/Assets/.wslconfig.template`
+- Add `$WslConfigDeploy = $false` to sandbox-config.ps1
+- If enabled, copy to `$env:USERPROFILE\.wslconfig` during install (with backup of existing)
+- Warn the user that this affects all WSL distros
+
+---
+
+## Audit logging `MEDIUM` (partially addressed)
+
+**Gap:** Only git changes and bash history timestamps are recorded. No system-level command audit, mount event tracking, or process spawn logging.
+
+**What's already done:** `HISTTIMEFORMAT` in profiles (S-018) provides timestamped command history.
+
+**What remains:**
+
+- `auditd` would provide kernel-level audit trail but adds overhead and complexity
+- `rsyslog` could forward logs to a persistent file
+- Mount/unmount operations in the workflow script could log to a file
+
+**Considerations:**
+
+- `auditd` may not work reliably in all WSL2 kernel versions
+- Log rotation needed if logging to a file (persistence mount could fill up)
+- For a local dev sandbox, bash history + git trail is likely sufficient
+- Full auditd is more appropriate for enterprise/shared environments
+
+**Implementation approach (if pursued):**
+
+- Add mount/unmount logging to `workflows/default.sh` (append to `~/.claude/mount.log`)
+- Skip auditd - too complex and fragile for WSL2
+- Document the limitation for users who need full audit compliance
+
+---
+
+## Image digest pinning `MEDIUM`
+
+**Gap:** `debian:bookworm-slim` is a floating tag. Each install pulls whatever the registry serves at that moment. No `@sha256:` digest or signature check.
+
+**What to look for:**
+
+- `podman inspect --format '{{.Digest}}' debian:bookworm-slim` gives the current digest
+- Pin as `debian:bookworm-slim@sha256:<hash>` in `sandbox-config.ps1`
+- Need to research: does `podman create` / `docker create` work with digest-only references (no tag)?
+- Need to research: how to handle multi-arch manifests (amd64 vs arm64 digests differ)
+
+**Considerations:**
+
+- Pinning means the digest goes stale - need a documented process to re-pin
+- Could add a check that verifies `$DistroImage` contains `@sha256:` but that forces all users to pin
+- Alternative: warn during install if no digest is present (WARN, not FAIL)
+
+**Implementation approach (needs testing):**
+
+- Verify `podman create debian@sha256:<hash>` works on Windows
+- If yes, change default in sandbox-config.ps1 and add update instructions
+- If multi-arch is a problem, document that user must pick the right arch digest
+
+---
+
+## Claude installer uses curl-pipe-bash `MEDIUM`
+
+**Gap:** `curl -fsSL https://claude.ai/install.sh | bash` with no checksum or signature verification.
+
+**Why it matters:** HTTPS protects transit but not against server compromise, CDN poisoning, or time-of-check/time-of-use changes.
+
+**Considerations:**
+
+- No offline installer package currently available from Anthropic
+- Could download to temp file, show hash, prompt for confirmation - but the hash changes with every release
+- Could maintain a known-good hash in `sandbox-config.ps1` but it would go stale immediately
+- npm/pip package would be better but Claude Code is distributed as a binary via this script
+
+**Blocked by:** No alternative distribution mechanism from Anthropic. Monitor for official package manager support (apt, npm, etc.).
+
+**Interim option:** Download to temp, display sha256, let user confirm. Low value since there's no known-good hash to compare against.
+
+---
+
+## Session timeout (TMOUT) `LOW`
+
+**Gap:** Idle shells stay open indefinitely.
+
+**What to look for:**
+
+- `TMOUT=N` in bash closes the shell after N seconds of inactivity
+- Can be annoying during development (shell closes while reading docs or thinking)
+- Should be configurable, not forced
+
+**Considerations:**
+
+- `Set-SandboxProfile` currently copies profiles as-is - no token replacement
+- Adding `__SessionTimeout__` token requires adding token replacement to the profile deploy path
+- Alternative: set TMOUT in the workflow script instead (already has token replacement)
+- Or: add it as a commented-out line in profiles with a note
+
+**Implementation approach:**
+
+- Simplest: add TMOUT to workflow script with `__SessionTimeout__` token (0 = disabled)
+- Add `$SessionTimeout = 0` to sandbox-config.ps1
+- Wire token replacement into `Set-SandboxWorkflow` and `Install-Sandbox`
+- No change to `Set-SandboxProfile` needed
+
+---
+
+## ConfigChange hooks `LOW`
+
+**Gap:** No auditing or blocking of settings changes during Claude sessions. A user (or Claude itself) could modify permissions mid-session.
+
+**What it is:** Claude Code supports `ConfigChange` hooks that fire when settings are modified during a session. These can log changes or block them entirely.
+
+**What to look for:**
+
+- Hooks are configured in Claude's settings files
+- Could log all permission changes to a file
+- Could block widening of permissions (e.g., adding new allow rules)
+- Useful for teams, less critical for solo local dev
+
+**Considerations:**
+
+- Adds complexity for marginal benefit in a single-user sandbox
+- More valuable if the sandbox is shared or used in a team setting
+- Need to research the exact hook configuration format
+- Could be deployed as part of the managed settings file
+
+**Implementation approach:**
+
+- Low priority - implement after managed settings file is in place
+- Add a hook in managed settings that logs config changes to persistence mount
+- Consider blocking rather than just logging for high-risk changes
+
+---
+
+## Sudo brute-force limiting `LOW`
+
+**Gap:** No PAM lockout after failed sudo attempts.
+
+**Why it's not planned:** Risk of locking yourself out of a local dev sandbox outweighs the benefit. The threat model is "sandbox can't escape to host," not "someone is brute-forcing sudo from inside." If an attacker is inside the sandbox, they already have the access level Claude has.
+
+**If reconsidered:** `pam_faillock` with `deny=5 unlock_time=600` would lock after 5 failures for 10 minutes. Requires adding `libpam-modules` and configuring `/etc/pam.d/common-auth`.
+
+---
+
+## Claude Code auto-updates `LOW`
+
+**Gap:** Claude Code updates itself. No version pinning or rollback.
+
+**Not fixable:** External tool managed by Anthropic. The binary at `~/.local/bin/claude` self-updates. No `--no-auto-update` flag exists. No package manager distribution available.
+
+**Monitor for:** Official apt/npm/brew packages that would allow version pinning.
+
+---
+
+## Secret management guidance `LOW`
+
+**Gap:** No documentation on where to store API keys, tokens, `.env` files.
+
+**What to cover:**
+
+- Never commit secrets to git (obvious but worth stating)
+- Don't store secrets in the persistence mount where Claude can read them
+- Use environment variables set in the shell session, not in profiles/workflows
+- Recommend `pass` or `age` for encrypted secret storage
+- Note that Claude can read any file it has access to - mount read-only if secrets exist in a project
+
+**Implementation:** Add a section to `docs/security.md`. No code changes.
+
+---
+
+## Backup strategy `LOW`
+
+**Gap:** No guidance on backing up the persistence directory.
+
+**What to cover:**
+
+- `$ClaudePersistenceDir` (default `D:\.claude`) contains: Claude login, settings, memory, conversation history
+- Loss means re-authentication and lost memory/settings
+- Simple backup: `robocopy D:\.claude D:\Backups\.claude /MIR` on a schedule
+- Or include in existing Windows backup job
+- Recovery: restore the folder, run `Update-ClaudeSandbox.ps1` to verify
+
+**Implementation:** Add a section to `docs/security.md`. No code changes.

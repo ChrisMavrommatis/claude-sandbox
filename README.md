@@ -61,9 +61,9 @@ After installing (or any time you want to check the sandbox is healthy):
 .\Verify-ClaudeSandbox.ps1
 ```
 
-Runs 26 checks across installation and security, each identified by a code (`I-001` for installation, `S-001` for security). Example output:
+Each check is identified by a code (`I-001` for installation, `S-001` for security). Example output:
 
-```
+```text
   PASS [I-001] Distro registered
   PASS [I-002] User 'dev' exists
   PASS [S-001] Windows interop disabled

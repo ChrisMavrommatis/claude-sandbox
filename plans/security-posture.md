@@ -1,69 +1,107 @@
-# Security Posture - Summary
+# Security Posture
 
-> For full details see [security-posture-details.md](security-posture-details.md)
-> For planned improvements see [security-improvements.md](security-improvements.md)
+> For research notes on unsupported items see [security-posture-details.md](security-posture-details.md)
 
----
+## Host Isolation
 
-## What's Covered
+| Name                       | Description                                                                        | Impact | Status        | Check |
+| -------------------------- | ---------------------------------------------------------------------------------- | ------ | ------------- | ----- |
+| WSL2 hypervisor boundary   | Sandbox runs in a lightweight VM backed by the Hyper-V hypervisor                  | HIGH   | Supported     | -     |
+| Windows interop disabled   | Cannot run Windows executables from inside the distro                              | HIGH   | Supported     | S-001 |
+| Windows PATH excluded      | No Windows executables leak into Linux `$PATH`                                     | HIGH   | Supported     | S-002 |
+| Automount disabled         | Windows drives not mounted automatically at boot                                   | HIGH   | Supported     | S-003 |
+| Outbound network filtering | Firewall rules or proxy to control what the sandbox can reach on the internet      | HIGH   | Not Supported | -     |
+| Binary format protection   | `protectBinfmt = true` prevents registering binfmt handlers on host kernel         | MEDIUM | Supported     | S-004 |
 
-| Domain | Covered | Verified |
-|--------|---------|----------|
-| Host isolation (WSL2 boundary, no Windows interop, no Windows PATH) | Yes | S-001, S-002 |
-| Drive access (no auto-mounts, fstab-only, on-demand project mounts) | Yes | S-003 |
-| Mount access control (read-only / read-write modes, ownership, umask) | Yes | S-010, S-011 |
-| Non-root default user with password-gated sudo | Yes | S-006, S-007 |
-| Process containment (systemd, bubblewrap namespaces) | Yes | S-005, S-009 |
-| Binary format protection (protectBinfmt) | Yes | S-004 |
-| Deployment integrity (token replacement, LF/UTF-8 enforcement) | Yes | - |
-| Project name validation (path traversal blocked) | Yes | S-012 |
-| Default password detection (warns on install, checked by verify) | Yes | S-013 |
-| GPU passthrough configurable (default: off) | Yes | S-014 |
-| Sudo password feedback | Yes | S-008 |
-| Claude permission modes (plan / acceptEdits / full) | Yes | - |
-| Per-project policies via CLAUDE.md | Yes | - |
-| Permanent tool deny lists via settings.json | Yes | - |
-| Worktree isolation for risky changes | Yes | - |
-| Git audit trail for all Claude changes | Yes | - |
-| Admin elevation required for all installer scripts | Yes | - |
-| Safe uninstall (confirmation prompt, persistence preserved) | Yes | - |
-| Temp file cleanup after installation | Yes | - |
-| Update mechanism (apt upgrade + profile re-deploy) | Yes | - |
-| Post-install verification (26 automated checks) | Yes | I-001..I-012, S-001..S-014 |
+## Filesystem
 
----
+| Name                       | Description                                                        | Impact | Status    | Check        |
+| -------------------------- | ------------------------------------------------------------------ | ------ | --------- | ------------ |
+| fstab-only mounts          | Only `/etc/fstab` entries are mounted; no automatic drive access   | HIGH   | Supported | S-019        |
+| Persistence mount security | `~/.claude` mounted with `uid`/`gid`, `umask=022`, `metadata`      | MEDIUM | Supported | S-010, S-011 |
+| Project mount modes        | Projects mounted with explicit `--ro` or `--rw`; remount detection | MEDIUM | Supported | -            |
+| Project name validation    | Rejects names with `/`, `\`, or `..` to block path traversal       | MEDIUM | Supported | S-012        |
+| Persistence symlink        | `~/.claude.json` -> `~/.claude/.claude.json` survives rebuilds     | LOW    | Supported | I-010        |
 
-## What's Missing
+## User & Privilege
 
-| Gap | Severity | Planned fix |
-|-----|----------|-------------|
-| No outbound network filtering | HIGH | Not planned - best addressed at Windows host level |
-| No resource limits (CPU / memory / disk) | MEDIUM | Tier 2: .wslconfig template |
-| No audit logging (commands, mounts, processes) | MEDIUM | Tier 3: bash history timestamps + mount logging |
-| No image digest pinning (floating tag) | MEDIUM | Tier 1: pin `@sha256:` in sandbox-config.ps1 |
-| Claude installer uses curl-pipe-bash with no checksum | MEDIUM | No fix available - waiting on offline package from Anthropic |
-| No session timeout (idle shells stay open) | LOW | Tier 1: configurable `$SessionTimeout` / TMOUT |
-| No secret management guidance (.env, API keys) | LOW | Tier 2: section in docs/security.md |
-| No backup strategy for persistence mount | LOW | Tier 2: section in docs/security.md |
+| Name                         | Description                                                                  | Impact | Status        | Check        |
+| ---------------------------- | ---------------------------------------------------------------------------- | ------ | ------------- | ------------ |
+| Non-root default user        | WSL distro runs as regular user, not root                                    | HIGH   | Supported     | S-006        |
+| Password-gated sudo          | `sudo` requires password; no `NOPASSWD` entries                              | HIGH   | Supported     | S-007        |
+| Default password warning     | Installer warns and prompts if password is still `changeme`                  | MEDIUM | Supported     | S-013        |
+| File permission verification | `wsl.conf` and `sudoers.d/pwfeedback` checked for correct ownership and mode | MEDIUM | Supported     | S-015, S-016 |
+| Umask enforcement            | `umask 022` set in shell profiles to prevent world-writable files            | LOW    | Supported     | S-017        |
+| Sudo password feedback       | Visual feedback during password entry via `pwfeedback`                       | LOW    | Supported     | S-008        |
+| Safe password handling       | Password piped to `chpasswd` via temp file, not in command args              | LOW    | Supported     | -            |
+| Session timeout (TMOUT)      | Auto-close idle shells after configurable period                             | LOW    | Not Supported | -            |
+| Sudo brute-force limiting    | PAM lockout after failed sudo attempts                                       | LOW    | Not Supported | -            |
 
-### Undocumented risks (found during review)
+## Process Containment
 
-| Risk | Severity | Planned fix |
-|------|----------|-------------|
-| File permissions not verified (wsl.conf, sudoers could be writable) | MEDIUM | Tier 1: S-015, S-016 checks |
-| No umask enforcement in shell profiles | LOW | Tier 1: `umask 022` in profiles, S-017 check |
-| Symlink escape from project mounts | LOW-MEDIUM | Tier 3: `nosymfollow` mount option or validation |
-| Password visible in process list during install | LOW | Tier 2: pipe to chpasswd via stdin |
-| No failed sudo attempt limiting | LOW | Not planned - risk of lockout outweighs benefit |
-| Claude Code auto-updates outside sandbox control | LOW | Not fixable - external tool |
+| Name                  | Description                                                       | Impact | Status        | Check |
+| --------------------- | ----------------------------------------------------------------- | ------ | ------------- | ----- |
+| systemd as PID 1      | Proper cgroup management and service supervision                  | MEDIUM | Supported     | S-005 |
+| Bubblewrap namespaces | `bwrap` installed for Claude's internal sandbox mode              | MEDIUM | Supported     | S-009 |
+| Resource limits       | CPU, memory, disk quotas via `.wslconfig` or systemd slices       | MEDIUM | Not Supported | -     |
 
----
+## GPU
 
-## Previously Missing, Now Fixed
+| Name                   | Description                                                  | Impact | Status    | Check |
+| ---------------------- | ------------------------------------------------------------ | ------ | --------- | ----- |
+| GPU passthrough toggle | Controlled by `$GpuEnabled` config variable; default off     | LOW    | Supported | S-014 |
 
-| Gap | Fixed by | Check |
-|-----|----------|-------|
-| No input validation on project names | `_validate_project_name()` in workflow script | S-012 |
-| Plaintext password in config with no warning | Install-Sandbox prompts on default password | S-013 |
-| GPU passthrough enabled by default | `$GpuEnabled` config toggle, default `$false` | S-014 |
-| No update / patch mechanism | `Update-ClaudeSandbox.ps1` / `Update-Sandbox` | - |
+## Deployment Integrity
+
+| Name                          | Description                                                            | Impact | Status        | Check |
+| ----------------------------- | ---------------------------------------------------------------------- | ------ | ------------- | ----- |
+| Token replacement             | `__TOKEN__` placeholders replaced at deploy time; no hardcoded paths   | MEDIUM | Supported     | -     |
+| Image digest pinning          | Container image pinned to `@sha256:` digest for reproducibility        | MEDIUM | Not Supported | -     |
+| Claude Code install integrity | Verify checksum/signature of Claude install script before running      | MEDIUM | Not Supported | -     |
+| Line ending normalization     | Scripts written as LF / UTF-8 no-BOM before copying to distro          | LOW    | Supported     | -     |
+
+## Audit & Logging
+
+| Name                 | Description                                                        | Impact | Status        | Check |
+| -------------------- | ------------------------------------------------------------------ | ------ | ------------- | ----- |
+| Git audit trail      | All Claude changes tracked and reversible via git                  | MEDIUM | Supported     | -     |
+| System audit logging | `auditd` / `syslog` for commands, mounts, process spawning         | MEDIUM | Not Supported | -     |
+| History timestamps   | `HISTTIMEFORMAT` set in profiles for command audit trail           | LOW    | Supported     | S-018 |
+
+## Application Layer (Claude)
+
+| Name                            | Description                                                                     | Impact | Status        | Check |
+| ------------------------------- | ------------------------------------------------------------------------------- | ------ | ------------- | ----- |
+| Permission modes                | `plan` / `acceptEdits` / `--dangerously-skip-permissions` per session           | HIGH   | Supported     | -     |
+| Claude `/sandbox` mode          | Filesystem and network isolation for bash commands via bubblewrap               | HIGH   | Supported     | S-009 |
+| Sandbox network proxy           | Domain-level network filtering for sandboxed bash commands via `allowedDomains` | HIGH   | Not Supported | -     |
+| Managed settings file           | Organization-wide permissions via `/etc/claude-code/managed-settings.json`      | MEDIUM | Not Supported | -     |
+| Managed policy CLAUDE.md        | Organization-wide rules deployed to `/etc/claude-code/CLAUDE.md` in sandbox     | MEDIUM | Not Supported | -     |
+| Sandbox fail-if-unavailable     | `sandbox.failIfUnavailable` makes sandbox a hard requirement                    | MEDIUM | Not Supported | -     |
+| Disable bypass permissions mode | Prevent users from using `bypassPermissions` via managed settings               | MEDIUM | Not Supported | -     |
+| Managed-only permission rules   | `allowManagedPermissionRulesOnly` prevents user/project allow rules             | MEDIUM | Not Supported | -     |
+| PreToolUse hooks                | Runtime hooks that can block specific tool calls before execution               | MEDIUM | Not Supported | -     |
+| Write access restriction        | Claude can only write to the folder where it was started and subfolders         | MEDIUM | Supported     | -     |
+| Command blocklist               | `curl` and `wget` blocked by default in Claude; defense-in-depth                | MEDIUM | Supported     | -     |
+| Per-project policies            | `CLAUDE.md` declares off-limits paths, branch rules, constraints                | MEDIUM | Supported     | -     |
+| Tool deny lists                 | `~/.claude/settings.json` permanently blocks specific commands                  | MEDIUM | Supported     | -     |
+| Worktree isolation              | `claude -w` works on a separate branch; main untouched                          | MEDIUM | Supported     | -     |
+| ConfigChange hooks              | Hooks to audit or block settings changes during sessions                        | LOW    | Not Supported | -     |
+| Claude Code auto-updates        | Version pinning or rollback for Claude Code itself                              | LOW    | Not Supported | -     |
+
+## Admin Operations
+
+| Name                       | Description                                                          | Impact | Status    | Check |
+| -------------------------- | -------------------------------------------------------------------- | ------ | --------- | ----- |
+| Admin elevation required   | All scripts check for Administrator and exit if not elevated         | HIGH   | Supported | -     |
+| Post-install verification  | `Test-Sandbox` runs automated checks at end of install               | HIGH   | Supported | -     |
+| Update mechanism           | `Update-Sandbox` runs apt upgrade, re-deploys profiles, verifies     | MEDIUM | Supported | -     |
+| Safe uninstall             | Confirmation prompts; persistence directory never deleted            | MEDIUM | Supported | -     |
+| Temp file cleanup          | Container tarball, staging files removed after install               | LOW    | Supported | -     |
+
+## Documentation
+
+| Name                        | Description                                                    | Impact | Status        | Check |
+| --------------------------- | -------------------------------------------------------------- | ------ | ------------- | ----- |
+| Secret management guidance  | Where to store API keys, .env handling, recommended tools      | LOW    | Not Supported | -     |
+| Backup strategy             | What to back up, how often, recovery procedure                 | LOW    | Not Supported | -     |

@@ -9,6 +9,9 @@
 # See bash(1) for more options
 HISTCONTROL=ignoreboth
 
+# Timestamp each history entry for audit trail [S-018]
+HISTTIMEFORMAT='%F %T  '
+
 # append to the history file, don't overwrite it
 shopt -s histappend
 
@@ -98,6 +101,9 @@ if [ -f /usr/share/bash-completion/bash_completion ] && ! shopt -oq posix; then
 fi
 
 export PATH="$HOME/.local/bin:$PATH"
+
+# Enforce default file permissions [S-017]
+umask 022
 
 # Add workflow in bashrc
 [ -f "$HOME/.bashrc.d/workflow.sh" ] && source "$HOME/.bashrc.d/workflow.sh"
