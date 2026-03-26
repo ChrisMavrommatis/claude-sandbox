@@ -149,3 +149,53 @@ No documentation or tooling for handling API keys, tokens, or `.env` files. User
 The persistence mount (`~/.claude`) survives distro rebuilds but there is no guidance on how often to back it up, how to verify its integrity, or how to recover if the Windows folder is deleted or corrupted.
 
 **What would fix it:** A brief section in the docs noting what lives in the persistence directory and recommending a backup approach (e.g. robocopy to a second location, or inclusion in an existing backup job).
+
+---
+
+## Additional Risks (identified during security review, not yet in gap list)
+
+### 9 - File permissions not verified `MEDIUM`
+
+Test-Sandbox checks that files exist but not their permissions. `/etc/wsl.conf` and `/etc/sudoers.d/pwfeedback` should be owned by root and not world-writable. A non-root user could modify these to weaken security.
+
+**What would fix it:** Add S-015 and S-016 checks to Test-Sandbox verifying ownership and permission bits. See [security-improvements.md](security-improvements.md) item A.
+
+---
+
+### 10 - No umask enforcement in shell profiles `LOW`
+
+Global umask=022 is set at the mount level but the shell profiles don't reinforce it. A user could change umask to 0, making new files world-readable/writable.
+
+**What would fix it:** Add explicit `umask 022` to both `default.sh` and `pretty.sh` profiles. Add S-017 check. See [security-improvements.md](security-improvements.md) item B.
+
+---
+
+### 11 - Symlink escape from project mounts `LOW-MEDIUM`
+
+Projects mounted via drvfs at `/home/dev/projects/<name>`. Malicious code in a project could create Linux symlinks pointing outside the project directory (e.g. `../../.claude`), potentially accessing the persistence mount or other sensitive paths.
+
+**What would fix it:** Add `-o nosymfollow` to mount options if supported by drvfs, or validate resolved paths don't escape `$PROJECTS_HOME`. See [security-improvements.md](security-improvements.md) item J.
+
+---
+
+### 12 - Password visible in process list during install `LOW`
+
+`chpasswd` receives the password as a command-line argument via `Invoke-InSandbox`, which could briefly appear in the process list.
+
+**What would fix it:** Pipe password to chpasswd via stdin instead of command arg. See [security-improvements.md](security-improvements.md) item F.
+
+---
+
+### 13 - No failed sudo attempt limiting `LOW`
+
+No PAM lockout configuration. A process could brute-force the sudo password with no rate limiting or account lockout.
+
+**Not planned:** Risk of locking yourself out of the sandbox outweighs the benefit for a local dev environment.
+
+---
+
+### 14 - Claude Code auto-updates outside sandbox control `LOW`
+
+Claude Code installed via curl-pipe-bash updates itself automatically. Updates could introduce vulnerabilities. No version pinning or rollback mechanism exists.
+
+**Not fixable:** External tool managed by Anthropic. No practical mechanism to pin versions.

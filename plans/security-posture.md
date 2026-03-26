@@ -1,6 +1,7 @@
 # Security Posture - Summary
 
 > For full details see [security-posture-details.md](security-posture-details.md)
+> For planned improvements see [security-improvements.md](security-improvements.md)
 
 ---
 
@@ -34,16 +35,27 @@
 
 ## What's Missing
 
-| Gap | Severity | Notes |
-|-----|----------|-------|
-| No outbound network filtering | HIGH | No iptables/nftables or proxy |
-| No resource limits (CPU / memory / disk) | MEDIUM | No .wslconfig template |
-| No audit logging (commands, mounts, processes) | MEDIUM | No auditd/syslog |
-| No image digest pinning (floating tag) | MEDIUM | Still uses `debian:bookworm-slim` |
-| Claude installer uses curl-pipe-bash with no checksum | MEDIUM | No offline alternative available |
-| No session timeout (idle shells stay open) | LOW | No TMOUT in profiles |
-| No secret management guidance (.env, API keys) | LOW | Nothing in docs |
-| No backup strategy for persistence mount | LOW | Nothing in docs |
+| Gap | Severity | Planned fix |
+|-----|----------|-------------|
+| No outbound network filtering | HIGH | Not planned - best addressed at Windows host level |
+| No resource limits (CPU / memory / disk) | MEDIUM | Tier 2: .wslconfig template |
+| No audit logging (commands, mounts, processes) | MEDIUM | Tier 3: bash history timestamps + mount logging |
+| No image digest pinning (floating tag) | MEDIUM | Tier 1: pin `@sha256:` in sandbox-config.ps1 |
+| Claude installer uses curl-pipe-bash with no checksum | MEDIUM | No fix available - waiting on offline package from Anthropic |
+| No session timeout (idle shells stay open) | LOW | Tier 1: configurable `$SessionTimeout` / TMOUT |
+| No secret management guidance (.env, API keys) | LOW | Tier 2: section in docs/security.md |
+| No backup strategy for persistence mount | LOW | Tier 2: section in docs/security.md |
+
+### Undocumented risks (found during review)
+
+| Risk | Severity | Planned fix |
+|------|----------|-------------|
+| File permissions not verified (wsl.conf, sudoers could be writable) | MEDIUM | Tier 1: S-015, S-016 checks |
+| No umask enforcement in shell profiles | LOW | Tier 1: `umask 022` in profiles, S-017 check |
+| Symlink escape from project mounts | LOW-MEDIUM | Tier 3: `nosymfollow` mount option or validation |
+| Password visible in process list during install | LOW | Tier 2: pipe to chpasswd via stdin |
+| No failed sudo attempt limiting | LOW | Not planned - risk of lockout outweighs benefit |
+| Claude Code auto-updates outside sandbox control | LOW | Not fixable - external tool |
 
 ---
 
