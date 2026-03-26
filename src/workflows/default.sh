@@ -26,7 +26,7 @@ index-projects() {
     else
         sudo mkdir -p "$PROJECTS_LIST_MOUNT"
         sudo mount -t drvfs "$PROJECTS_DRVFS" "$PROJECTS_LIST_MOUNT" \
-            -o uid=1000,gid=1000,umask=022,ro \
+            -o "uid=$(id -u),gid=$(id -g),umask=022,ro" \
             || { echo "Failed to mount ${PROJECTS_DRVFS}"; return 1; }
     fi
 
@@ -44,32 +44,40 @@ mount-project() {
     local project="$1"
     local mode="${2:---rw}"
     [[ -z "$project" ]] && { echo "Usage: mount-project <project> [--ro|--rw]" >&2; return 1; }
+    [[ "$mode" != "--ro" && "$mode" != "--rw" ]] && { echo "Invalid mode '$mode'. Use --ro or --rw." >&2; return 1; }
     
     local project_path="$PROJECTS_HOME/$project"
     local winpath="$PROJECTS_DRVFS\\$project"
 
-    local opts="uid=1000,gid=1000,umask=022"
+    local opts="uid=$(id -u),gid=$(id -g),umask=022"
     [[ "$mode" == "--ro" ]] && opts+=",ro"
     [[ "$mode" == "--rw" ]] && opts+=",metadata"
 
 
     mkdir -p "$project_path"
 
+    local is_inside_project= [[ "$PWD" == "$project_path"* ]] && true || false
+
     # Already mounted? remount if mode differs
     if mountpoint -q "$project_path" 2>/dev/null; then
         local current_mode
-        current_mode=$(findmnt -T $project_path  | grep -oE 'ro,|rw,' | sed 's/,//')
+        current_mode=$(findmnt -T "$project_path" | grep -oE 'ro,|rw,' | sed 's/,//')
         if [[ "$current_mode" == "${mode#--}" ]]; then
             echo "Project '$project' is already mounted with mode $mode"
             return 0
         else
+             [[ "$is_inside_project" == true ]] && cd "$PROJECTS_HOME"
+
             sudo umount "$project_path"
         fi
     fi 
 
-    sudo mount -t drvfs "$winpath" "$project_path" -o $opts \
+    sudo mount -t drvfs "$winpath" "$project_path" -o "$opts" \
         || { echo "Failed to mount project '$project' at '$project_path'"; return 1; }
 
+    if [[ "$is_inside_project" == true ]] && cd "$project_path"; then
+        echo "Remounted project '$project' with mode $mode and stayed in the project directory"
+    fi
     echo "Project '$project' mounted at '$project_path'($mode)"
 }
 
@@ -113,6 +121,7 @@ switch-project() {
 
 # === Tab completion ================================================================
 _projects_complete() {
+    COMPREPLY=()
     local cur="${COMP_WORDS[COMP_CWORD]}"
     [[ -f "$PROJECTS_INDEX" ]] && \
         COMPREPLY=($(compgen -W "$(cat "$PROJECTS_INDEX")" -- "$cur"))

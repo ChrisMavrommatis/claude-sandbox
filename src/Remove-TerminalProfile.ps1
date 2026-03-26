@@ -55,5 +55,5 @@ if (-not $profile) {
 
 $settingsJson.profiles.list = @($profilesList | Where-Object { $_.guid -ne $profile.guid })
 Set-Content -Path $settingsFile -Value ($settingsJson | ConvertTo-Json -Depth 10) -Encoding UTF8
-Write-OK "Removed '$TerminalProfileName' from Windows Terminal dropdown list."
+Write-Ok "Removed '$TerminalProfileName' from Windows Terminal dropdown list."
 

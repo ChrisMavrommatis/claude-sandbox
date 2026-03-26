@@ -80,7 +80,9 @@ Write-Step "Step 1: Setting up WSL2 and creating distro..."
 ### Install WSL2 if not already installed
 Write-Info "Installing WSL2 (if not already installed)..."
 wsl --install --no-distribution 2>$null | Out-Null
+Check-ExitCode "Failed to install WSL2. Ensure WSL is enabled and try again."
 wsl --set-default-version 2 | Out-Null
+Check-ExitCode "Failed to set WSL default version to 2."
 
 Write-Ok "Step 1 complete: WSL2 is set up"
 
@@ -120,6 +122,7 @@ Write-Ok "Container removed"
 Write-Info "Importing '$DistroImage' as WSL distro '$DistroName'..."
 Ensure-DirectoryExists $InstallDir
 wsl --import $DistroName $InstallDir $TarPath --version 2 | Out-Null
+Check-ExitCode "Failed to import distro '$DistroName'. Check that the distro doesn't already exist (wsl --list)."
 Write-Ok "Distro imported to $InstallDir"
 
 
@@ -135,7 +138,7 @@ Write-Ok "Packages installed"
 
 ### Create user and set password
 Write-Info "Creating user '$Username'..."
-$escapedPassword = $UserPassword -replace "'", "'\''"
+$escapedPassword = $UserPassword -replace "'", "'\'''" -replace '\$', '\$' -replace '`', '\`' -replace '"', '\"'
 Execute-InSandbox "useradd -m -s /bin/bash $Username && printf '%s:%s\n' '$Username' '$escapedPassword' | chpasswd && usermod -aG sudo $Username" "root"
 Write-Ok "User '$Username' created and added to sudo group"
 
@@ -158,21 +161,7 @@ Write-Ok "wsl.conf written"
 
 ### Restart the distro to apply wsl.conf changes
 Write-Info "Restarting distro to apply wsl.conf..."
-wsl --terminate $DistroName | Out-Null
-Start-Sleep -Seconds 5
-Write-Ok "Distro restarted"
-
-### Configure PATH in .bashrc
-Write-Info "Configuring user environment..."
-Add-Content -Path "\\wsl$\$DistroName\home\$Username\.bashrc" `
-            -Value 'export PATH="$HOME/.local/bin:$PATH"' `
-            -Encoding UTF8
-Write-Ok "Directories and PATH configured"
-
-### Restart the distro to apply PATH changes
-Write-Info "Restarting distro to apply PATH changes..."
-wsl --terminate $DistroName | Out-Null
-Start-Sleep -Seconds 5
+Restart-Distro $DistroName
 Write-Ok "Distro restarted"
 
 ### Configure persistence directory and mount
@@ -182,8 +171,10 @@ Write-Ok ".claude directory created"
 
 ### Write fstab entry to mount Windows folder as ~/.claude in the sandbox
 Write-Info "Configuring persistence directory mount in wsl.conf..."
+$userUid = (wsl -d $DistroName --user $Username -- id -u).Trim()
+$userGid = (wsl -d $DistroName --user $Username -- id -g).Trim()
 Execute-InSandbox "rm -f /tmp/claude-fstab.tmp" "root"
-$fstabDirLine = "$ClaudePersistenceDir /home/$Username/.claude drvfs uid=1000,gid=1000,umask=022,metadata 0 0`n"
+$fstabDirLine = "$ClaudePersistenceDir /home/$Username/.claude drvfs uid=$userUid,gid=$userGid,umask=022,metadata 0 0`n"
 [System.IO.File]::WriteAllText(
     "\\wsl$\$DistroName\tmp\claude-fstab.tmp",
     $fstabDirLine,
@@ -199,8 +190,7 @@ Write-Ok "Symlink for ~/.claude.json created"
 
 ### Restart the distro to apply fstab changes
 Write-Info "Restarting distro to apply FSTAB changes..."
-wsl --terminate $DistroName | Out-Null
-Start-Sleep -Seconds 5
+Restart-Distro $DistroName
 Write-Ok "Distro restarted"
 
 ### Install Claude Code
@@ -241,11 +231,11 @@ $workflowContent = (Get-Content "$PSScriptRoot\workflows\default.sh" -Raw -Encod
 Write-Ok "Default workflow profile added"
 
 ## -- Step 5: Add Windows Terminal profile -------------------------------------------------
-Write-Step "Adding Windows Terminal profile for '$DistroName'..."
+Write-Step "Step 5: Adding Windows Terminal profile for '$DistroName'..."
 . "$PSScriptRoot\Add-TerminalProfile.ps1"
 
-## -- Step 5: Cleanup temp files ----------------------------------------------------------------
-Write-Step "Step 5: Cleaning up temporary files..."
+## -- Step 6: Cleanup temp files ----------------------------------------------------------------
+Write-Step "Step 6: Cleaning up temporary files..."
 
 ### Remove temporary files
 Write-Info "Removing temporary files..."

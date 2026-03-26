@@ -60,7 +60,7 @@ if (-not $profileFile) {
     Write-Error "Windows Terminal profile for '$DistroName' not found. Ensure the profile exists."
     exit 1
 }
-Write-OK "Found profile file: $profileFile"
+Write-Ok "Found profile file: $profileFile"
 
 Write-Info "Updating profile settings in '$profileFile'..."
 #### Print file content for debugging
@@ -104,12 +104,11 @@ if ($profile.PSObject.Properties.Name -contains "icon") {
 
 $profileGuid = $profile.guid
 
+# Note: ConvertTo-Json may reformat the JSON file (whitespace, property ordering)
 $content = $json | ConvertTo-Json -Depth 10
-#### Print file content for debugging
-# $content | Write-Host -ForegroundColor Green
 
 Set-Content -Path $profileFile -Value $content -Encoding UTF8
-Write-OK "Updated Windows Terminal profile for '$DistroName' with name '$TerminalProfileName'."
+Write-Ok "Updated Windows Terminal profile for '$DistroName' with name '$TerminalProfileName'."
 
 
 ### Find the settings file and add the profile to the dropdown list if not already present
@@ -132,7 +131,7 @@ if (-not ($profilesList | Where-Object { $_.guid -eq $profileGuid })) {
     $profilesList += $newProfile
     $content = $json | ConvertTo-Json -Depth 10
     Set-Content -Path $settingsFile -Value $content -Encoding UTF8
-    Write-OK "Added profile '$TerminalProfileName' to Windows Terminal dropdown list."
+    Write-Ok "Added profile '$TerminalProfileName' to Windows Terminal dropdown list."
 } else {
     Write-Info "Profile '$TerminalProfileName' already present in Windows Terminal dropdown list. No changes made."
 }
