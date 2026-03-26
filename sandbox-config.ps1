@@ -35,13 +35,13 @@ $DistroImage            = "debian:bookworm-slim"
 $InstallDir             = "D:\WSL\$DistroName"
 
 # -- Terminal profile settings ------------------------------------------------------
-$TerminalProfileName    = "Claude Sandbox Test"  # Name shown in Windows Terminal dropdown
-$TerminalProfileIcon    = "ms-appx:///ProfileIcons/{9acb9455-ca41-5af7-950f-6bca1bc9722f}.png"  # Optional: Path to custom icon for Windows Terminal profile (must be .png)
+$TerminalProfileName        = "Claude Sandbox Test"  # Name shown in Windows Terminal dropdown
+$TerminalProfileIcon        = "ms-appx:///ProfileIcons/{9acb9455-ca41-5af7-950f-6bca1bc9722f}.png"  # Optional: Path to custom icon for Windows Terminal profile (must be .png)
 $TerminalProfileColorScheme = "One Half Dark"  # Optional: Color scheme for Windows Terminal profile (must be defined in your settings.json)
-$TerminalProfileBackground = "#1a0a22"  # Optional: Background color for Windows Terminal profile (hex code)
+$TerminalProfileBackground  = "#1a0a22"  # Optional: Background color for Windows Terminal profile (hex code)
 
 # -- Security settings --------------------------------------------------------
-$GpuEnabled             = $false  # Enable GPU passthrough (only if you need it)
+$GpuEnabled                 = $false  # Enable GPU passthrough (only if you need it)
 
 
 
