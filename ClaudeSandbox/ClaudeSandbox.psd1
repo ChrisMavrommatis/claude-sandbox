@@ -13,7 +13,8 @@
         'Add-TerminalProfile',
         'Remove-TerminalProfile',
         'Invoke-InSandbox',
-        'Restart-Sandbox'
+        'Restart-Sandbox',
+        'Test-Sandbox'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()

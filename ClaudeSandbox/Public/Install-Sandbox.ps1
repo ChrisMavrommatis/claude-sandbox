@@ -39,7 +39,7 @@ function Install-Sandbox {
 
     Write-Ok "Step 1 Complete: WSL2 ready"
 
-    # -- Step 2: Create WSL distro --------------------------------------------------------
+    # -- Step 2: Create WSL distro [I-001] ------------------------------------------------
     Write-Step "Step 2: Creating container image from $DistroImage..."
 
     Write-Info "Creating container from '$DistroImage'..."
@@ -67,6 +67,7 @@ function Install-Sandbox {
     }
     Write-Ok "Container removed"
 
+    # Imports distro into WSL [I-001]
     Write-Info "Importing '$DistroImage' as WSL distro '$DistroName'..."
     Initialize-Directory $InstallDir
     wsl --import $DistroName $InstallDir $TarPath --version 2 | Out-Null
@@ -78,15 +79,18 @@ function Install-Sandbox {
     # -- Step 3: Configure the sandbox ----------------------------------------------------
     Write-Step "Step 3: Configuring the sandbox environment..."
 
+    # Install required packages [I-004.1 through I-004.N]
     Write-Info "Installing packages..."
     Invoke-InSandbox $DistroName "apt-get update && apt-get upgrade -y && apt-get install -y $($Packages -join ' ')"
     Write-Ok "Packages installed"
 
+    # Create user and add to sudo group [I-002, I-003, S-007]
     Write-Info "Creating user '$Username'..."
     $escapedPassword = $UserPassword -replace "'", "'\'''" -replace '\$', '\$' -replace '`', '\`' -replace '"', '\"'
     Invoke-InSandbox $DistroName "useradd -m -s /bin/bash $Username && printf '%s:%s\n' '$Username' '$escapedPassword' | chpasswd && usermod -aG sudo $Username"
     Write-Ok "User '$Username' created and added to sudo group"
 
+    # Deploy wsl.conf [I-005, S-001, S-002, S-003, S-004, S-005, S-006]
     Write-Info "Writing wsl.conf..."
     $wslConfPath = Get-AssetPath "wsl.conf"
     $wslConfContent = (Get-Content $wslConfPath -Raw) `
@@ -99,10 +103,12 @@ function Install-Sandbox {
     Restart-Sandbox $DistroName
     Write-Ok "Distro restarted"
 
+    # Create .claude persistence directory [I-008]
     Write-Info "Creating .claude persistence directory..."
     Invoke-InSandbox $DistroName "mkdir -p ~/.claude" $Username
     Write-Ok ".claude directory created"
 
+    # Configure persistence mount in fstab [I-009, S-010, S-011]
     Write-Info "Configuring persistence directory mount in fstab..."
     $userUid = (wsl -d $DistroName --user $Username -- id -u).Trim()
     $userGid = (wsl -d $DistroName --user $Username -- id -g).Trim()
@@ -111,6 +117,7 @@ function Install-Sandbox {
     Invoke-InSandbox $DistroName "cat /tmp/claude-fstab.tmp >> /etc/fstab && rm /tmp/claude-fstab.tmp"
     Write-Ok "Persistence directory mount configured"
 
+    # Create .claude.json symlink [I-010]
     Write-Info "Creating symlink for ~/.claude.json persistence file..."
     Invoke-InSandbox $DistroName "ln -sf /home/$Username/.claude/.claude.json /home/$Username/.claude.json" $Username
     Write-Ok "Symlink for ~/.claude.json created"
@@ -119,15 +126,17 @@ function Install-Sandbox {
     Restart-Sandbox $DistroName
     Write-Ok "Distro restarted"
 
+    # Configure sudo password feedback [S-008]
     Write-Info "Configuring sudo password feedback..."
     Invoke-InSandbox $DistroName "echo 'Defaults pwfeedback' >> /etc/sudoers.d/pwfeedback" "root"
     Write-Ok "sudo password feedback enabled"
 
-    ### Install Claude Code
-    # Write-Info "Installing Claude Code..."
-    # Invoke-InSandbox $DistroName "curl -fsSL https://claude.ai/install.sh | bash" $Username
-    # Write-Ok "Claude Code installed"
+    # Install Claude Code [I-012]
+    Write-Info "Installing Claude Code..."
+    Invoke-InSandbox $DistroName "curl -fsSL https://claude.ai/install.sh | bash" $Username
+    Write-Ok "Claude Code installed"
 
+    # Create projects and .bashrc.d directories [I-011]
     Write-Info "Creating projects and .bashrc.d directories..."
     Invoke-InSandbox $DistroName "mkdir -p /home/$Username/projects" $Username
     Invoke-InSandbox $DistroName "mkdir -p /home/$Username/.bashrc.d" $Username
@@ -135,21 +144,11 @@ function Install-Sandbox {
 
     Write-Ok "Step 3 Complete: Sandbox environment configured"
 
-    # -- Step 4: Default profile and workflow ---------------------------------------------
+    # -- Step 4: Default profile and workflow [I-006, I-007] --------------------------------
     Write-Step "Step 4: Adding default bashrc profile and workflow..."
 
-    Write-Info "Deploying default bashrc profile..."
-    $profilePath = Get-AssetPath "profiles\default.sh"
-    $profileContent = Get-Content $profilePath -Raw -Encoding UTF8
-    Write-FileToDistro $DistroName "/home/$Username/.bashrc" $profileContent
-    Write-Ok "Default bashrc profile deployed"
-
-    Write-Info "Deploying default workflow..."
-    $workflowPath = Get-AssetPath "workflows\default.sh"
-    $workflowContent = (Get-Content $workflowPath -Raw -Encoding UTF8) `
-        -replace "__PROJECTS_DRVFS__", $ProjectsPath.Replace("\", "\\")
-    Write-FileToDistro $DistroName "/home/$Username/.bashrc.d/workflow.sh" $workflowContent
-    Write-Ok "Default workflow deployed"
+    Set-SandboxProfile -Config $Config -ProfileName "default.sh"
+    Set-SandboxWorkflow -Config $Config -WorkflowName "default.sh"
 
     Write-Ok "Step 4 Complete: Default profile and workflow added"
 

@@ -30,4 +30,30 @@ $Config = @{
     TerminalProfileBackground  = $TerminalProfileBackground
 }
 
-Set-SandboxWorkflow -Config $Config
+# -- Interactive workflow picker -------------------------------------------------------
+$workflowsDir = Join-Path $PSScriptRoot "ClaudeSandbox\Assets\workflows"
+$workflowFiles = Get-ChildItem -Path $workflowsDir -Filter "*.sh" -File
+if ($workflowFiles.Count -eq 0) {
+    Write-Error "No workflow files found in '$workflowsDir'."
+    exit 1
+}
+
+Write-Host ""
+Write-Host "  Available workflows:" -ForegroundColor Cyan
+for ($i = 0; $i -lt $workflowFiles.Count; $i++) {
+    Write-Host "  [$($i+1)] $($workflowFiles[$i].Name)" -ForegroundColor Gray
+}
+Write-Host ""
+
+$index = 0
+do {
+    $raw = Read-Host "Select a workflow (1-$($workflowFiles.Count))"
+    $valid = [int]::TryParse($raw.Trim(), [ref]$index) -and $index -ge 1 -and $index -le $workflowFiles.Count
+    if (-not $valid) {
+        Write-Host "  Invalid selection. Enter a number between 1 and $($workflowFiles.Count)." -ForegroundColor Red
+    }
+} while (-not $valid)
+
+$selected = $workflowFiles[$index - 1].Name
+
+Set-SandboxWorkflow -Config $Config -WorkflowName $selected

@@ -18,7 +18,7 @@ A one-command setup that creates an isolated Linux environment on Windows (via W
 
 ## Quick Start
 
-**1. Edit the config** — open `src/sandbox-config.ps1` and set your paths:
+**1. Edit the config** - open `sandbox-config.ps1` and set your paths:
 
 ```powershell
 $ProjectsPath         = "D:\Projects"  # where your Windows projects live
@@ -30,7 +30,7 @@ $ContainerRuntime     = "podman"       # or "docker"
 **2. Run the installer** from an elevated PowerShell prompt:
 
 ```powershell
-.\src\Install-ClaudeSandbox.ps1
+.\Install-ClaudeSandbox.ps1
 ```
 
 That's it. The installer creates the WSL2 distro, installs packages, configures Claude Code, and wires up project mounting and persistence.
@@ -53,19 +53,38 @@ mount-project my-app --ro    # read-only
 unmount-project my-app
 ```
 
+## Verifying the installation
+
+After installing (or any time you want to check the sandbox is healthy):
+
+```powershell
+.\Verify-ClaudeSandbox.ps1
+```
+
+This runs 23 checks across installation and security, each identified by a code (`I-001` for installation, `S-001` for security). Example output:
+
+```
+  PASS [I-001] Distro registered
+  PASS [I-002] User 'dev' exists
+  PASS [S-001] Windows interop disabled
+  WARN [I-012] Claude Code not installed
+  ------------------------------------------------------------
+  All checks passed: 22 passed, 1 warnings
+```
+
 ## Switching profiles
 
 You can swap the shell config or workflow profile at any time from PowerShell:
 
 ```powershell
-.\src\Change-Profile.ps1           # pick a bashrc style (default or pretty)
-.\src\Change-Workflow.ps1          # pick a workflow profile
-.\src\Uninstall-ClaudeSandbox.ps1  # uninstall the distro (keeps Claude persistence data)
+.\Change-Profile.ps1               # pick a bashrc style (default or pretty)
+.\Change-Workflow.ps1              # pick a workflow profile
+.\Uninstall-ClaudeSandbox.ps1      # uninstall the distro (keeps Claude persistence data)
 ```
 
 ## Windows Terminal integration
 
-The installer automatically adds a Windows Terminal profile for the distro. You can customise it before running the installer by editing `src/sandbox-config.ps1`:
+The installer automatically adds a Windows Terminal profile for the distro. You can customise it before running the installer by editing `sandbox-config.ps1`:
 
 ```powershell
 $TerminalProfileName        = "Claude Sandbox"       # name in the dropdown
@@ -74,11 +93,14 @@ $TerminalProfileColorScheme = "One Half Dark"         # must exist in your Termi
 $TerminalProfileBackground  = "#1a0a22"               # optional hex background color
 ```
 
-To add or remove the Terminal profile independently:
+To add or remove the Terminal profile independently, import the module and call the functions directly:
 
 ```powershell
-.\src\Add-TerminalProfile.ps1     # add / re-apply the profile
-.\src\Remove-TerminalProfile.ps1  # remove the profile from the dropdown
+Import-Module .\ClaudeSandbox\ClaudeSandbox.psd1 -Force
+. .\sandbox-config.ps1
+$Config = @{ DistroName = $DistroName; TerminalProfileName = $TerminalProfileName; TerminalProfileIcon = $TerminalProfileIcon; TerminalProfileColorScheme = $TerminalProfileColorScheme; TerminalProfileBackground = $TerminalProfileBackground }
+Add-TerminalProfile -Config $Config       # add / re-apply the profile
+Remove-TerminalProfile -Config $Config    # remove the profile from the dropdown
 ```
 
 ## How it works

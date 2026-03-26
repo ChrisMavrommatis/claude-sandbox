@@ -140,10 +140,10 @@ wsl -d claude-sandbox
 
 ## 7. Deploy the Bashrc Profile
 
-The profile replaces `~/.bashrc`. Copy `src/profiles/default.sh` from the repo into the distro:
+The profile replaces `~/.bashrc`. Copy `ClaudeSandbox/Assets/profiles/default.sh` from the repo into the distro:
 
 ```powershell
-Copy-Item ".\src\profiles\default.sh" "\\wsl$\claude-sandbox\home\dev\.bashrc"
+Copy-Item ".\ClaudeSandbox\Assets\profiles\default.sh" "\\wsl$\claude-sandbox\home\dev\.bashrc"
 ```
 
 Or manually ensure `~/.bashrc` ends with:
@@ -166,7 +166,7 @@ The workflow provides `index-projects`, `mount-project`, `switch-project`, and t
 wsl -d claude-sandbox -u dev -- bash -c "mkdir -p ~/.bashrc.d"
 
 # Copy and patch the workflow (replace the token with your Windows projects path)
-(Get-Content ".\src\workflows\default.sh" -Raw) `
+(Get-Content ".\ClaudeSandbox\Assets\workflows\default.sh" -Raw) `
     -replace "__PROJECTS_DRVFS__", "D:\\Projects" |
     Set-Content -NoNewline "\\wsl$\claude-sandbox\home\dev\.bashrc.d\workflow.sh"
 ```
@@ -189,18 +189,21 @@ switch-project <tab>
 
 ## 10. Add a Windows Terminal Profile (optional)
 
-The installer does this automatically, but you can run it manually or re-apply it any time:
+The installer does this automatically, but you can run it manually by importing the module:
 
 ```powershell
-.\src\Add-TerminalProfile.ps1
+Import-Module .\ClaudeSandbox\ClaudeSandbox.psd1 -Force
+. .\sandbox-config.ps1
+$Config = @{ DistroName = $DistroName; TerminalProfileName = $TerminalProfileName; TerminalProfileIcon = $TerminalProfileIcon; TerminalProfileColorScheme = $TerminalProfileColorScheme; TerminalProfileBackground = $TerminalProfileBackground }
+Add-TerminalProfile -Config $Config
 ```
 
-This reads `$TerminalProfileName`, `$TerminalProfileIcon`, `$TerminalProfileColorScheme`, and `$TerminalProfileBackground` from `sandbox-config.ps1` and patches the Windows Terminal fragment file for the distro as well as the main `settings.json` dropdown list.
+This reads the terminal profile settings from the `$Config` hashtable and patches the Windows Terminal fragment file for the distro as well as the main `settings.json` dropdown list.
 
 To remove the profile entry:
 
 ```powershell
-.\src\Remove-TerminalProfile.ps1
+Remove-TerminalProfile -Config $Config
 ```
 
 ---
