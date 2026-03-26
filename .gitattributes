@@ -1,0 +1,16 @@
+# Shell scripts must use LF (deployed to Linux)
+*.sh text eol=lf
+
+# PowerShell scripts use CRLF (run on Windows)
+*.ps1 text eol=crlf
+*.psd1 text eol=crlf
+*.psm1 text eol=crlf
+
+# Config templates use LF (deployed to Linux)
+wsl.conf text eol=lf
+
+# Markdown and docs
+*.md text eol=lf
+
+# JSON
+*.json text eol=lf

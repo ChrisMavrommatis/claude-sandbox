@@ -1,2 +1,11 @@
+# IDE
 .vs/
+.vscode/
+.idea/
+
+# Build artifacts
 temp/
+*.tar
+
+# Claude Code local settings
+.claude/settings.local.json

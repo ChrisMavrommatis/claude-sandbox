@@ -51,7 +51,7 @@ Ordered by impact: HIGH first, then MEDIUM, then LOW.
 - DNS filtering (e.g. Pi-hole on host) would catch DNS-based exfiltration but not direct IP connections
 - The sandbox network proxy (above) partially addresses this for bash commands
 
-**Best approach:** Document recommended Windows Firewall rules or host-side proxy setup in `docs/security.md`. Don't try to automate it from inside the sandbox. This is fundamentally a host-level concern.
+**Best approach:** Document recommended Windows Firewall rules or host-side proxy setup in `docs/safe-usage.md`. Don't try to automate it from inside the sandbox. This is fundamentally a host-level concern.
 
 **Blocked by:** WSL2 networking architecture. No clean self-contained solution exists.
 
@@ -389,7 +389,7 @@ Ordered by impact: HIGH first, then MEDIUM, then LOW.
 - Recommend `pass` or `age` for encrypted secret storage
 - Note that Claude can read any file it has access to - mount read-only if secrets exist in a project
 
-**Implementation:** Add a section to `docs/security.md`. No code changes.
+**Implementation:** Add a section to `docs/safe-usage.md`. No code changes.
 
 ---
 
@@ -405,4 +405,4 @@ Ordered by impact: HIGH first, then MEDIUM, then LOW.
 - Or include in existing Windows backup job
 - Recovery: restore the folder, run `Update-ClaudeSandbox.ps1` to verify
 
-**Implementation:** Add a section to `docs/security.md`. No code changes.
+**Implementation:** Add a section to `docs/safe-usage.md`. No code changes.

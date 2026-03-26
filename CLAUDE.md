@@ -162,7 +162,7 @@ Claude Code's `.claude` directory is bind-mounted from a Windows folder (`$Claud
 | File                                | Role                                                                                |
 | ----------------------------------- | ----------------------------------------------------------------------------------- |
 | `docs/setup-commands.md`            | Step-by-step manual setup guide (no installer)                                      |
-| `docs/security.md`                  | User-facing guide to using Claude safely inside the sandbox                         |
+| `docs/safe-usage.md`                | User-facing guide to using Claude safely inside the sandbox                         |
 | `plans/security-posture.md`         | Security coverage summary with gap list                                             |
 | `plans/security-posture-details.md` | Detailed security analysis: controls in place, gaps with severity, additional risks |
 
