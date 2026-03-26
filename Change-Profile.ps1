@@ -1,11 +1,9 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Installs the Claude Code WSL2 sandbox environment.
+    Changes the active bashrc profile in claude-sandbox.
 .DESCRIPTION
-    Creates a Debian bookworm-slim WSL2 distro with Claude Code installed
-    and project-switching helpers configured.
-    Prerequisites: WSL2 feature enabled, Podman or Docker for Windows installed.
+    Interactive picker to select and deploy a bashrc profile without reinstalling.
     Run from an elevated PowerShell prompt.
     Edit sandbox-config.ps1 first.
 #>
@@ -31,4 +29,4 @@ $Config = @{
     TerminalProfileBackground  = $TerminalProfileBackground
 }
 
-Install-Sandbox -Config $Config
+Set-SandboxProfile -Config $Config

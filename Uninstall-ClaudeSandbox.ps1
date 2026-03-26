@@ -1,11 +1,10 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Installs the Claude Code WSL2 sandbox environment.
+    Removes the Claude Code WSL2 sandbox environment.
 .DESCRIPTION
-    Creates a Debian bookworm-slim WSL2 distro with Claude Code installed
-    and project-switching helpers configured.
-    Prerequisites: WSL2 feature enabled, Podman or Docker for Windows installed.
+    Terminates and unregisters the WSL2 distro, optionally removes the install
+    directory. Claude persistence data is never touched.
     Run from an elevated PowerShell prompt.
     Edit sandbox-config.ps1 first.
 #>
@@ -31,4 +30,4 @@ $Config = @{
     TerminalProfileBackground  = $TerminalProfileBackground
 }
 
-Install-Sandbox -Config $Config
+Uninstall-Sandbox -Config $Config

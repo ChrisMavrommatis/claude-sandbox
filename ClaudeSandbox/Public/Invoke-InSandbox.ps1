@@ -8,7 +8,7 @@ function Invoke-InSandbox {
         [string]$Command,
 
         [Parameter(Mandatory=$false)]
-        [string]$User = $Username
+        [string]$User = "root"
     )
     wsl -d $DistroName --user $User -- bash -c $Command `
         | ForEach-Object { Write-Host "       $_`r" -ForegroundColor DarkGray }

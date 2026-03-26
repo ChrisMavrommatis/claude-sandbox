@@ -56,7 +56,8 @@ mount-project() {
 
     mkdir -p "$project_path"
 
-    local is_inside_project= [[ "$PWD" == "$project_path"* ]] && true || false
+    local is_inside_project=false
+    [[ "$PWD" == "$project_path"* ]] && is_inside_project=true
 
     # Already mounted? remount if mode differs
     if mountpoint -q "$project_path" 2>/dev/null; then

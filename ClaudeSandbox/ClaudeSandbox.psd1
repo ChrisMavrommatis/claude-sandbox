@@ -6,6 +6,12 @@
     PowerShellVersion = '5.1'
     RootModule        = 'ClaudeSandbox.psm1'
     FunctionsToExport = @(
+        'Install-Sandbox',
+        'Uninstall-Sandbox',
+        'Set-SandboxProfile',
+        'Set-SandboxWorkflow',
+        'Add-TerminalProfile',
+        'Remove-TerminalProfile',
         'Invoke-InSandbox',
         'Restart-Sandbox'
     )

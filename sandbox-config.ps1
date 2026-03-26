@@ -1,8 +1,9 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# Claude Sandbox — Configuration
+# Claude Sandbox - Configuration
 # Edit this file. 
 # The following files read it automatically.
-# - Install-ClaudeSandbox.ps1 
+# - Install-ClaudeSandbox.ps1
+# - Uninstall-ClaudeSandbox.ps1
 # - Change-Profile.ps1
 # - Change-Workflow.ps1
 # ═══════════════════════════════════════════════════════════════════════════════
