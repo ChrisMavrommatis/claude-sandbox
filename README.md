@@ -18,7 +18,7 @@ A one-command setup that creates an isolated Linux environment on Windows (via W
 
 ## Quick Start
 
-**1. Review the config** - open `sandbox-config.ps1` and check the default paths:
+**1. Edit the config** - open `sandbox-config.ps1` and set your paths:
 
 ```powershell
 $ProjectsPath         = "D:\Projects"  # where your Windows projects live

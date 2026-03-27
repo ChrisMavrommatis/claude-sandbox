@@ -158,6 +158,29 @@ function Install-Sandbox {
     Invoke-InSandbox $DistroName "mkdir -p /home/$Username/.bashrc.d" $Username
     Write-Ok "Directories created"
 
+    # Deploy session timeout [S-020]
+    $sessionTimeout = if ($Config.SessionTimeout) { $Config.SessionTimeout } else { 0 }
+    if ($sessionTimeout -gt 0) {
+        Write-Info "Deploying session timeout ($sessionTimeout seconds)..."
+        $timeoutPath = Get-AssetPath "session-timeout.sh"
+        $timeoutContent = (Get-Content $timeoutPath -Raw) -replace "__SESSION_TIMEOUT__", $sessionTimeout
+        Write-FileToDistro $DistroName "/etc/profile.d/session-timeout.sh" $timeoutContent
+        Write-Ok "Session timeout deployed (${sessionTimeout}s)"
+    } else {
+        Write-Info "Session timeout disabled (SessionTimeout = 0)"
+    }
+
+    # Deploy managed settings and policy [I-013, I-014]
+    Write-Info "Deploying managed settings and policy..."
+    Invoke-InSandbox $DistroName "mkdir -p /etc/claude-code"
+    $managedSettingsPath = Get-AssetPath "managed-settings.json"
+    $managedSettingsContent = Get-Content $managedSettingsPath -Raw
+    Write-FileToDistro $DistroName "/etc/claude-code/managed-settings.json" $managedSettingsContent
+    $managedPolicyPath = Get-AssetPath "managed-policy.md"
+    $managedPolicyContent = Get-Content $managedPolicyPath -Raw
+    Write-FileToDistro $DistroName "/etc/claude-code/CLAUDE.md" $managedPolicyContent
+    Write-Ok "Managed settings and policy deployed"
+
     Write-Ok "Step 3 Complete: Sandbox environment configured"
 
     # -- Step 4: Default profile and workflow [I-006, I-007] --------------------------------

@@ -99,3 +99,35 @@ git log --oneline -5  # see what was committed
 ```
 
 Undo the last commit: `git reset HEAD~1`.
+
+---
+
+## Secret management
+
+Claude can read any file it has access to. Handle secrets carefully:
+
+- **Never commit secrets to git.** Use `.gitignore` for `.env` files.
+- **Never store secrets in `~/.claude`** (the persistence mount). Claude has full read access to this directory across all sessions, including future ones.
+- **Environment variables are visible to Claude.** Any secret you `export` in a shell session is readable by Claude and every child process it spawns. This is acceptable for short-lived secrets but not for long-term credentials.
+- **Mount read-only when secrets exist.** If a project contains `.env` files or credentials, mount it with `--ro` and manage secrets outside the mount path.
+- **Use `pass` or `age` for encrypted storage.** These tools decrypt on demand and don't leave plaintext on disk.
+
+---
+
+## Backup strategy
+
+Claude's persistent state lives in the `$ClaudePersistenceDir` folder on your Windows host (default: `D:\.claude`). This contains your Claude login, settings, memory, and conversation history.
+
+**What to back up:** The entire `$ClaudePersistenceDir` folder.
+
+**How:**
+
+```powershell
+robocopy D:\.claude D:\Backups\.claude /MIR
+```
+
+Or include it in your existing Windows backup job.
+
+**Recovery:** Restore the folder, then run `.\Update-ClaudeSandbox.ps1` to verify everything is wired up correctly.
+
+**What you lose without a backup:** Re-authentication with Claude, all conversation memory, custom settings and permission rules.

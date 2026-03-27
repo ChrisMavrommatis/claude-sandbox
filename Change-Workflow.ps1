@@ -29,6 +29,7 @@ $Config = @{
     TerminalProfileColorScheme = $TerminalProfileColorScheme
     TerminalProfileBackground  = $TerminalProfileBackground
     GpuEnabled                 = $GpuEnabled
+    SessionTimeout             = $SessionTimeout
 }
 
 # -- Interactive workflow picker -------------------------------------------------------

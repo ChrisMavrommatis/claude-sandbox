@@ -28,6 +28,7 @@ $Config = @{
     TerminalProfileColorScheme = $TerminalProfileColorScheme
     TerminalProfileBackground  = $TerminalProfileBackground
     GpuEnabled                 = $GpuEnabled
+    SessionTimeout             = $SessionTimeout
 }
 
 Test-Sandbox -Config $Config

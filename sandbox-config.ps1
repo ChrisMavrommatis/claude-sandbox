@@ -12,9 +12,7 @@
 
 # -- Paths & credentials --------------------------------------------------------
 $ProjectsPath           = "D:\Projects"   # Root folder containing your Windows projects
-# Leave blank to be prompted during install (recommended).
-# Set a value here only for non-interactive / CI runs. Avoid single-quote characters.
-$UserPassword           = ""
+$UserPassword           = "changeme"      # Avoid single-quote characters in the password
 $ClaudePersistenceDir   = "D:\.claude"    # Windows folder to be mounted as /.claude in the sandbox for persistent storage
 
 # -- Container runtime --------------------------------------------------------- 
@@ -44,6 +42,7 @@ $TerminalProfileBackground  = "#1a0a22"  # Optional: Background color for Window
 
 # -- Security settings --------------------------------------------------------
 $GpuEnabled                 = $false  # Enable GPU passthrough (only if you need it)
+$SessionTimeout             = 0      # Idle shell timeout in seconds (0 = disabled)
 
 
 

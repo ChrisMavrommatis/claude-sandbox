@@ -1,11 +1,24 @@
+# Logs and temp files
+*.log
+*.tmp
+
+# Windows noise
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
 # IDE
 .vs/
 .vscode/
 .idea/
+*.swp
 
 # Build artifacts
 temp/
 *.tar
+
+# PowerShell
+*.ps1xml
 
 # Claude Code local settings
 .claude/settings.local.json

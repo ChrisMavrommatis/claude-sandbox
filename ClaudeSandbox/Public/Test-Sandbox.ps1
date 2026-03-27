@@ -152,6 +152,20 @@ function Test-Sandbox {
         Write-CheckResult "I-012" "WARN" "Claude Code not installed"
     }
 
+    # I-013: Managed settings deployed
+    if (Test-InSandbox "test -f /etc/claude-code/managed-settings.json") {
+        Write-CheckResult "I-013" "PASS" "Managed settings deployed"
+    } else {
+        Write-CheckResult "I-013" "FAIL" "Managed settings missing"
+    }
+
+    # I-014: Managed policy deployed
+    if (Test-InSandbox "test -f /etc/claude-code/CLAUDE.md") {
+        Write-CheckResult "I-014" "PASS" "Managed policy deployed"
+    } else {
+        Write-CheckResult "I-014" "FAIL" "Managed policy missing"
+    }
+
     # =====================================================================================
     # Security Checks
     # =====================================================================================
@@ -310,6 +324,17 @@ function Test-Sandbox {
         Write-CheckResult "S-019" "PASS" "fstab-only mounts enabled"
     } else {
         Write-CheckResult "S-019" "FAIL" "mountFsTab not set to true"
+    }
+
+    # S-020: Session timeout (only if configured)
+    $sessionTimeout = if ($Config.SessionTimeout) { $Config.SessionTimeout } else { 0 }
+    if ($sessionTimeout -gt 0) {
+        $tmoutCheck = Get-FromSandbox "grep -q 'readonly TMOUT' /etc/profile.d/session-timeout.sh 2>/dev/null && echo yes"
+        if ($tmoutCheck -and $tmoutCheck.Trim() -eq "yes") {
+            Write-CheckResult "S-020" "PASS" "Session timeout configured (${sessionTimeout}s)"
+        } else {
+            Write-CheckResult "S-020" "FAIL" "Session timeout not properly configured"
+        }
     }
 
     # S-018: History timestamps enabled for audit trail

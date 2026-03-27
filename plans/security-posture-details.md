@@ -57,84 +57,6 @@ Ordered by impact: HIGH first, then MEDIUM, then LOW.
 
 ---
 
-## Managed settings file `MEDIUM`
-
-**Gap:** No organization-wide permission enforcement. Users can configure Claude's permissions however they want. A managed settings file would set default deny rules that apply to all sessions.
-
-**What it is:** Claude Code reads `/etc/claude-code/managed-settings.json` (on Linux/WSL) as a managed settings file. Unlike user settings, managed settings cannot be overridden by user or project settings. This can enforce permission deny lists, sandbox configuration, hook policies, and more. Also supports a `managed-settings.d/` drop-in directory for policy fragments.
-
-**What to look for:**
-
-- Deploy alongside the managed CLAUDE.md during `Install-Sandbox`
-- Permission deny rules (e.g., `Bash(rm -rf /*)`)
-- Sandbox configuration (`sandbox.enabled`, `sandbox.failIfUnavailable`, `sandbox.network.allowedDomains`)
-- `disableBypassPermissionsMode` to prevent bypassing permissions
-- `allowManagedHooksOnly` to prevent user hooks from overriding managed hooks
-- Same JSON schema as regular `settings.json` - use `$schema` for validation
-
-**Considerations:**
-
-- Too restrictive breaks real workflows (e.g., blocking curl prevents installing packages)
-- Should start minimal - sandbox config + a few deny rules
-- Can bundle sandbox network proxy, fail-if-unavailable, bypass mode disable, and deny rules in one file
-- Can be updated via `Update-Sandbox`
-- Drop-in directory (`managed-settings.d/`) allows modular policy deployment
-
-**Implementation approach:**
-
-- Create `ClaudeSandbox/Assets/managed-settings.json` with baseline configuration
-- Deploy to `/etc/claude-code/managed-settings.json` during install
-- Bundle: sandbox enabled + fail-if-unavailable + domain allowlist + deny rules
-- Also deploy managed CLAUDE.md in the same step
-
----
-
-## Managed policy CLAUDE.md `MEDIUM`
-
-**Gap:** No organization-wide defaults for Claude behavior inside the sandbox. Per-project `CLAUDE.md` files only apply to individual projects - there's no baseline that applies to every session.
-
-**What it is:** Claude Code supports a managed policy file at `/etc/claude-code/CLAUDE.md` (on Linux/WSL). This is read automatically by Claude at the start of every session, before any project-level `CLAUDE.md`. It cannot be overridden by users.
-
-**What to look for:**
-
-- Deploy the file during `Install-Sandbox` to `/etc/claude-code/CLAUDE.md`
-- Content could include: security rules (never commit secrets, never modify system config), code style defaults, sandbox-specific constraints (don't touch /etc/wsl.conf, don't modify persistence mount)
-- Could also be re-deployed by `Update-Sandbox` so policy updates propagate
-
-**Considerations:**
-
-- Content needs careful drafting - too restrictive breaks workflows, too loose adds no value
-- Should be a separate asset file in `ClaudeSandbox/Assets/` with its own deploy step
-- May want a `Set-SandboxPolicy` function or fold into existing install/update flow
-- Need to decide what rules are universal vs what belongs in per-project CLAUDE.md
-
-**Implementation approach:**
-
-- Create `ClaudeSandbox/Assets/claude-policy.md` with baseline rules
-- Add a deploy step in `Install-Sandbox`: `mkdir -p /etc/claude-code && cp claude-policy.md /etc/claude-code/CLAUDE.md`
-- Add an `I-013` check in `Test-Sandbox` to verify the file exists
-- Re-deploy during `Update-Sandbox`
-
----
-
-## Sandbox fail-if-unavailable `MEDIUM`
-
-**Gap:** If bubblewrap fails to start, Claude silently falls back to running commands without sandboxing. No indication to the user that sandbox protection is missing.
-
-**What it is:** Setting `sandbox.failIfUnavailable = true` in settings makes Claude refuse to run bash commands if the sandbox can't start, rather than silently falling back to unsandboxed execution.
-
-**What to look for:**
-
-- Add to managed settings file
-- Combined with `sandbox.enabled = true`
-- Ensures the security guarantee is never silently dropped
-
-**Implementation approach:**
-
-- Part of the managed settings deployment. One line in the settings JSON.
-
----
-
 ## Disable bypass permissions mode `MEDIUM`
 
 **Gap:** Users can run Claude with `bypassPermissions` mode which skips all permission prompts. In a controlled sandbox this might be acceptable, but managed settings can prevent it.
@@ -267,8 +189,15 @@ Ordered by impact: HIGH first, then MEDIUM, then LOW.
 
 - `podman inspect --format '{{.Digest}}' debian:bookworm-slim` gives the current digest
 - Pin as `debian:bookworm-slim@sha256:<hash>` in `sandbox-config.ps1`
-- Need to research: does `podman create` / `docker create` work with digest-only references (no tag)?
-- Need to research: how to handle multi-arch manifests (amd64 vs arm64 digests differ)
+
+**Multi-arch digest pinning (resolved):**
+
+- Pull the architecture-specific image explicitly: `podman pull --platform linux/amd64 debian:bookworm-slim`
+- Get the platform-specific digest: `podman inspect --format '{{.Digest}}' debian:bookworm-slim`
+- For ARM64 hosts: use `--platform linux/arm64` - the digest differs from amd64
+- Pin in sandbox-config.ps1 as: `$DistroImage = 'debian:bookworm-slim@sha256:<your-digest>'`
+- The digest is architecture-specific - document this in sandbox-config.ps1 with a comment explaining users must re-pin for their platform
+- `podman create` and `docker create` both accept digest-pinned references; no tag is required if a digest is present
 
 **Considerations:**
 
@@ -276,11 +205,11 @@ Ordered by impact: HIGH first, then MEDIUM, then LOW.
 - Could add a check that verifies `$DistroImage` contains `@sha256:` but that forces all users to pin
 - Alternative: warn during install if no digest is present (WARN, not FAIL)
 
-**Implementation approach (needs testing):**
+**Implementation approach:**
 
-- Verify `podman create debian@sha256:<hash>` works on Windows
-- If yes, change default in sandbox-config.ps1 and add update instructions
-- If multi-arch is a problem, document that user must pick the right arch digest
+- Add a WARN (not FAIL) check to Test-Sandbox: if $DistroImage does not contain '@sha256:', emit a warning that the image is not digest-pinned
+- Document the pinning process in sandbox-config.ps1
+- Do not change the default - users opt in to pinning
 
 ---
 
@@ -300,32 +229,6 @@ Ordered by impact: HIGH first, then MEDIUM, then LOW.
 **Blocked by:** No alternative distribution mechanism from Anthropic. Monitor for official package manager support (apt, npm, etc.).
 
 **Interim option:** Download to temp, display sha256, let user confirm. Low value since there's no known-good hash to compare against.
-
----
-
-## Session timeout (TMOUT) `LOW`
-
-**Gap:** Idle shells stay open indefinitely.
-
-**What to look for:**
-
-- `TMOUT=N` in bash closes the shell after N seconds of inactivity
-- Can be annoying during development (shell closes while reading docs or thinking)
-- Should be configurable, not forced
-
-**Considerations:**
-
-- `Set-SandboxProfile` currently copies profiles as-is - no token replacement
-- Adding `__SessionTimeout__` token requires adding token replacement to the profile deploy path
-- Alternative: set TMOUT in the workflow script instead (already has token replacement)
-- Or: add it as a commented-out line in profiles with a note
-
-**Implementation approach:**
-
-- Simplest: add TMOUT to workflow script with `__SessionTimeout__` token (0 = disabled)
-- Add `$SessionTimeout = 0` to sandbox-config.ps1
-- Wire token replacement into `Set-SandboxWorkflow` and `Install-Sandbox`
-- No change to `Set-SandboxProfile` needed
 
 ---
 
@@ -375,34 +278,3 @@ Ordered by impact: HIGH first, then MEDIUM, then LOW.
 
 **Monitor for:** Official apt/npm/brew packages that would allow version pinning.
 
----
-
-## Secret management guidance `LOW`
-
-**Gap:** No documentation on where to store API keys, tokens, `.env` files.
-
-**What to cover:**
-
-- Never commit secrets to git (obvious but worth stating)
-- Don't store secrets in the persistence mount where Claude can read them
-- Use environment variables set in the shell session, not in profiles/workflows
-- Recommend `pass` or `age` for encrypted secret storage
-- Note that Claude can read any file it has access to - mount read-only if secrets exist in a project
-
-**Implementation:** Add a section to `docs/safe-usage.md`. No code changes.
-
----
-
-## Backup strategy `LOW`
-
-**Gap:** No guidance on backing up the persistence directory.
-
-**What to cover:**
-
-- `$ClaudePersistenceDir` (default `D:\.claude`) contains: Claude login, settings, memory, conversation history
-- Loss means re-authentication and lost memory/settings
-- Simple backup: `robocopy D:\.claude D:\Backups\.claude /MIR` on a schedule
-- Or include in existing Windows backup job
-- Recovery: restore the folder, run `Update-ClaudeSandbox.ps1` to verify
-
-**Implementation:** Add a section to `docs/safe-usage.md`. No code changes.

@@ -25,17 +25,17 @@
 
 ## User & Privilege
 
-| Name                         | Description                                                                  | Impact | Status        | Check        |
-| ---------------------------- | ---------------------------------------------------------------------------- | ------ | ------------- | ------------ |
-| Non-root default user        | WSL distro runs as regular user, not root                                    | HIGH   | Supported     | S-006        |
-| Password-gated sudo          | `sudo` requires password; no `NOPASSWD` entries                              | HIGH   | Supported     | S-007        |
-| Default password warning     | Installer warns and prompts if password is still `changeme`                  | MEDIUM | Supported     | S-013        |
-| File permission verification | `wsl.conf` and `sudoers.d/pwfeedback` checked for correct ownership and mode | MEDIUM | Supported     | S-015, S-016 |
-| Umask enforcement            | `umask 022` set in shell profiles to prevent world-writable files            | LOW    | Supported     | S-017        |
-| Sudo password feedback       | Visual feedback during password entry via `pwfeedback`                       | LOW    | Supported     | S-008        |
-| Safe password handling       | Password piped to `chpasswd` via temp file, not in command args              | LOW    | Supported     | -            |
-| Session timeout (TMOUT)      | Auto-close idle shells after configurable period                             | LOW    | Not Supported | -            |
-| Sudo brute-force limiting    | PAM lockout after failed sudo attempts                                       | LOW    | Not Supported | -            |
+| Name                         | Description                                                                  | Impact | Status        | Enforcement | Check        |
+| ---------------------------- | ---------------------------------------------------------------------------- | ------ | ------------- | ----------- | ------------ |
+| Non-root default user        | WSL distro runs as regular user, not root                                    | HIGH   | Supported     | Sandbox     | S-006        |
+| Password-gated sudo          | `sudo` requires password; no `NOPASSWD` entries                              | HIGH   | Supported     | Sandbox     | S-007        |
+| Default password warning     | Installer warns and prompts if password is still `changeme`                  | MEDIUM | Supported     | Sandbox     | S-013        |
+| File permission verification | `wsl.conf` and `sudoers.d/pwfeedback` checked for correct ownership and mode | MEDIUM | Supported     | Sandbox     | S-015, S-016 |
+| Umask enforcement            | `umask 022` set in shell profiles to prevent world-writable files            | LOW    | Supported     | Sandbox     | S-017        |
+| Sudo password feedback       | Visual feedback during password entry via `pwfeedback`                       | LOW    | Supported     | Sandbox     | S-008        |
+| Safe password handling       | Password piped to `chpasswd` via temp file, not in command args              | LOW    | Supported     | Sandbox     | -            |
+| Session timeout (TMOUT)      | Auto-close idle shells after configurable period                             | LOW    | Supported     | Sandbox     | S-020        |
+| Sudo brute-force limiting    | PAM lockout after failed sudo attempts                                       | LOW    | Not Supported | -           | -            |
 
 ## Process Containment
 
@@ -70,24 +70,24 @@
 
 ## Application Layer (Claude)
 
-| Name                            | Description                                                                     | Impact | Status        | Check |
-| ------------------------------- | ------------------------------------------------------------------------------- | ------ | ------------- | ----- |
-| Permission modes                | `plan` / `acceptEdits` / `--dangerously-skip-permissions` per session           | HIGH   | Supported     | -     |
-| Claude `/sandbox` mode          | Filesystem and network isolation for bash commands via bubblewrap               | HIGH   | Supported     | S-009 |
-| Sandbox network proxy           | Domain-level network filtering for sandboxed bash commands via `allowedDomains` | HIGH   | Not Supported | -     |
-| Managed settings file           | Organization-wide permissions via `/etc/claude-code/managed-settings.json`      | MEDIUM | Not Supported | -     |
-| Managed policy CLAUDE.md        | Organization-wide rules deployed to `/etc/claude-code/CLAUDE.md` in sandbox     | MEDIUM | Not Supported | -     |
-| Sandbox fail-if-unavailable     | `sandbox.failIfUnavailable` makes sandbox a hard requirement                    | MEDIUM | Not Supported | -     |
-| Disable bypass permissions mode | Prevent users from using `bypassPermissions` via managed settings               | MEDIUM | Not Supported | -     |
-| Managed-only permission rules   | `allowManagedPermissionRulesOnly` prevents user/project allow rules             | MEDIUM | Not Supported | -     |
-| PreToolUse hooks                | Runtime hooks that can block specific tool calls before execution               | MEDIUM | Not Supported | -     |
-| Write access restriction        | Claude can only write to the folder where it was started and subfolders         | MEDIUM | Supported     | -     |
-| Command blocklist               | `curl` and `wget` blocked by default in Claude; defense-in-depth                | MEDIUM | Supported     | -     |
-| Per-project policies            | `CLAUDE.md` declares off-limits paths, branch rules, constraints                | MEDIUM | Supported     | -     |
-| Tool deny lists                 | `~/.claude/settings.json` permanently blocks specific commands                  | MEDIUM | Supported     | -     |
-| Worktree isolation              | `claude -w` works on a separate branch; main untouched                          | MEDIUM | Supported     | -     |
-| ConfigChange hooks              | Hooks to audit or block settings changes during sessions                        | LOW    | Not Supported | -     |
-| Claude Code auto-updates        | Version pinning or rollback for Claude Code itself                              | LOW    | Not Supported | -     |
+| Name                            | Description                                                                     | Impact | Status        | Enforcement          | Check |
+| ------------------------------- | ------------------------------------------------------------------------------- | ------ | ------------- | -------------------- | ----- |
+| Permission modes                | `plan` / `acceptEdits` / `--dangerously-skip-permissions` per session           | HIGH   | Supported     | User                 | -     |
+| Claude `/sandbox` mode          | Filesystem and network isolation for bash commands via bubblewrap               | HIGH   | Supported     | Sandbox              | S-009 |
+| Sandbox network proxy           | Domain-level network filtering for sandboxed bash commands via `allowedDomains` | HIGH   | Not Supported | Sandbox (when impl.) | -     |
+| Managed settings file           | Organization-wide permissions via `/etc/claude-code/managed-settings.json`      | MEDIUM | Supported     | Sandbox              | I-013 |
+| Managed policy CLAUDE.md        | Organization-wide rules deployed to `/etc/claude-code/CLAUDE.md` in sandbox     | MEDIUM | Supported     | Sandbox              | I-014 |
+| Sandbox fail-if-unavailable     | `sandbox.failIfUnavailable` makes sandbox a hard requirement                    | MEDIUM | Supported     | Sandbox              | I-013 |
+| Disable bypass permissions mode | Prevent users from using `bypassPermissions` via managed settings               | MEDIUM | Not Supported | Sandbox (when impl.) | -     |
+| Managed-only permission rules   | `allowManagedPermissionRulesOnly` prevents user/project allow rules             | MEDIUM | Not Supported | Sandbox (when impl.) | -     |
+| PreToolUse hooks                | Runtime hooks that can block specific tool calls before execution               | MEDIUM | Not Supported | Sandbox (when impl.) | -     |
+| Write access restriction        | Claude can only write to the folder where it was started and subfolders         | MEDIUM | Supported     | User                 | -     |
+| Command blocklist               | `curl` and `wget` blocked by default in Claude; defense-in-depth                | MEDIUM | Supported     | Claude default       | -     |
+| Per-project policies            | `CLAUDE.md` declares off-limits paths, branch rules, constraints                | MEDIUM | Supported     | User                 | -     |
+| Tool deny lists                 | `~/.claude/settings.json` permanently blocks specific commands                  | MEDIUM | Supported     | User                 | -     |
+| Worktree isolation              | `claude -w` works on a separate branch; main untouched                          | MEDIUM | Supported     | User                 | -     |
+| ConfigChange hooks              | Hooks to audit or block settings changes during sessions                        | LOW    | Not Supported | Sandbox (when impl.) | -     |
+| Claude Code auto-updates        | Version pinning or rollback for Claude Code itself                              | LOW    | Not Supported | -                    | -     |
 
 ## Admin Operations
 
@@ -103,5 +103,5 @@
 
 | Name                        | Description                                                    | Impact | Status        | Check |
 | --------------------------- | -------------------------------------------------------------- | ------ | ------------- | ----- |
-| Secret management guidance  | Where to store API keys, .env handling, recommended tools      | LOW    | Not Supported | -     |
-| Backup strategy             | What to back up, how often, recovery procedure                 | LOW    | Not Supported | -     |
+| Secret management guidance  | Where to store API keys, .env handling, recommended tools      | LOW    | Supported     | -     |
+| Backup strategy             | What to back up, how often, recovery procedure                 | LOW    | Supported     | -     |

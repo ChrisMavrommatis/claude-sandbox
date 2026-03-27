@@ -26,6 +26,17 @@ function Update-Sandbox {
     Set-SandboxWorkflow -Config $Config -WorkflowName "default.sh"
     Write-Ok "Profile and workflow re-deployed"
 
+    # -- Re-deploy managed settings and policy [I-013, I-014] ------------------------------
+    Write-Step "Re-deploying managed settings and policy..."
+    Invoke-InSandbox $DistroName "mkdir -p /etc/claude-code"
+    $managedSettingsPath = Get-AssetPath "managed-settings.json"
+    $managedSettingsContent = Get-Content $managedSettingsPath -Raw
+    Write-FileToDistro $DistroName "/etc/claude-code/managed-settings.json" $managedSettingsContent
+    $managedPolicyPath = Get-AssetPath "managed-policy.md"
+    $managedPolicyContent = Get-Content $managedPolicyPath -Raw
+    Write-FileToDistro $DistroName "/etc/claude-code/CLAUDE.md" $managedPolicyContent
+    Write-Ok "Managed settings and policy re-deployed"
+
     # -- Verify ---------------------------------------------------------------------------
     Write-Step "Verifying sandbox..."
     Test-Sandbox -Config $Config

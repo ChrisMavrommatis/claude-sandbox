@@ -6,7 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - Never use em dashes. Use regular hyphens (`-`) or double hyphens (`--`) instead.
 - **Verification check codes**: Every piece of code that creates or configures something verified by `Test-Sandbox` must have a `# [X-NNN]` comment on or near the responsible line. This links the implementation to its verification check. When adding new installer steps or security settings, add a corresponding check to `Test-Sandbox` with the next available code, and annotate the source. When modifying existing checked code, preserve the code annotation.
-- **Keep documentation in sync**: After any change to the codebase, update `CLAUDE.md`, `README.md`, and `plans/security-posture.md` / `plans/security-posture-details.md` to reflect the current state. New functions must appear in CLAUDE.md tables. New wrapper scripts must appear in both CLAUDE.md and README.md. New or resolved security gaps must be updated in the plans files. Documentation should never describe something that doesn't exist or omit something that does.
+- **Keep documentation in sync**:
+  - `README.md`: update when commands, scripts, or user-facing behaviour changes
+  - `CLAUDE.md`: update when architecture, functions, or coding conventions change
+  - `plans/security-posture.md` and `plans/security-posture-details.md`: update ONLY when explicitly implementing or resolving a security control or gap. Do NOT modify these files as a side effect of unrelated changes (adding a config variable, fixing a bug, updating a profile, etc.). If a change has security implications but you were not asked to update the posture files, flag it in your response instead.
+  - Documentation should never describe something that doesn't exist or omit something that does.
 - **Markdown table formatting**: Align separator rows to match column widths using dashes (e.g., `| ---------------------- |` not `| -- |` or `|--|`). Pad cell content with spaces to match the widest entry in each column so tables are readable in plain text.
 
 ## What This Project Is
@@ -158,6 +162,8 @@ Claude Code's `.claude` directory is bind-mounted from a Windows folder (`$Claud
 | `profiles/default.sh`  | Standard Debian bashrc that sources `~/.bashrc.d/workflow.sh`                                               |
 | `profiles/pretty.sh`   | Enhanced bashrc with colored prompt and archive extractor utility                                           |
 | `workflows/default.sh` | Bash functions (`index-projects`, `mount-project`, `switch-project`) with tab completion and welcome banner |
+| `managed-settings.json` | Claude Code managed settings deployed to `/etc/claude-code/managed-settings.json`                          |
+| `managed-policy.md`    | Claude Code managed policy deployed to `/etc/claude-code/CLAUDE.md`                                         |
 
 **Documentation:**
 
@@ -169,6 +175,8 @@ Claude Code's `.claude` directory is bind-mounted from a Windows folder (`$Claud
 | `docs/safe-usage.md`                | User-facing guide to using Claude safely inside the sandbox                         |
 | `plans/security-posture.md`         | Security coverage summary with gap list                                             |
 | `plans/security-posture-details.md` | Detailed security analysis: controls in place, gaps with severity, additional risks |
+| `docs/decisions/README.md`          | ADR index with links to all architecture decision records                           |
+| `docs/decisions/ADR-001..005`       | Architecture Decision Records (WSL2, iptables, sudo, persistence, curl-pipe-bash)   |
 
 ## Verification Check Codes
 
@@ -201,6 +209,8 @@ When adding new checks: assign the next code in sequence, add the check to `Test
 | `I-010`   | Installation | .claude.json symlink exists                          |
 | `I-011`   | Installation | Projects directory exists                            |
 | `I-012`   | Installation | Claude Code installed (warn-only)                    |
+| `I-013`   | Installation | Managed settings deployed                            |
+| `I-014`   | Installation | Managed policy deployed                              |
 | `S-001`   | Security     | Windows interop disabled                             |
 | `S-002`   | Security     | Windows PATH excluded                                |
 | `S-003`   | Security     | Automount disabled                                   |
@@ -220,6 +230,7 @@ When adding new checks: assign the next code in sequence, add the check to `Test
 | `S-017`   | Security     | umask 022 enforced in profile                        |
 | `S-018`   | Security     | History timestamps enabled (HISTTIMEFORMAT)          |
 | `S-019`   | Security     | fstab-only mounts enabled (mountFsTab = true)        |
+| `S-020`   | Security     | Session timeout configured (when SessionTimeout > 0) |
 
 ## Configuration
 
@@ -227,7 +238,7 @@ Edit `sandbox-config.ps1` to set defaults. The install wizard prompts for each v
 
 - `$ProjectsPath` - Windows root for projects (mounted into Linux on demand)
 - `$ClaudePersistenceDir` - Windows folder where `.claude` state is persisted across distro rebuilds
-- `$UserPassword` - Leave blank for interactive installs (wizard prompts securely). Set only for `-NonInteractive` / CI runs. Never commit a real value to git.
+- `$UserPassword` - Default sandbox user password. The install wizard prompts securely and overrides this value. Used as-is only in `-NonInteractive` mode.
 - `$ContainerRuntime` - `podman` or `docker`
 - `$Packages` - Extra apt packages to install in the distro
 - `$Username` / `$DistroName` / `$InstallDir` - Distro identity and install location
@@ -236,3 +247,4 @@ Edit `sandbox-config.ps1` to set defaults. The install wizard prompts for each v
 - `$TerminalProfileColorScheme` - Optional color scheme name (must exist in Windows Terminal settings)
 - `$TerminalProfileBackground` - Optional hex background color for the Windows Terminal profile
 - `$GpuEnabled` - Enable GPU passthrough (default: `$false`)
+- `$SessionTimeout` - Idle shell timeout in seconds (default: `0` = disabled). Uses `readonly TMOUT` via `/etc/profile.d/`.
