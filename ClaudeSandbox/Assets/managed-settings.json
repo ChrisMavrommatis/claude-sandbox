@@ -4,8 +4,7 @@
     "deny": [
       "Bash(rm -rf /*)",
       "Bash(dd *)",
-      "Bash(mkfs *)",
-      "Bash(:(){ :|:& };:)"
+      "Bash(mkfs *)"
     ]
   },
   "sandbox": {

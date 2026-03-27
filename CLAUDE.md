@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Keep documentation in sync**:
   - `README.md`: update when commands, scripts, or user-facing behaviour changes
   - `CLAUDE.md`: update when architecture, functions, or coding conventions change
-  - `plans/security-posture.md` and `plans/security-posture-details.md`: update ONLY when explicitly implementing or resolving a security control or gap. Do NOT modify these files as a side effect of unrelated changes (adding a config variable, fixing a bug, updating a profile, etc.). If a change has security implications but you were not asked to update the posture files, flag it in your response instead.
+  - `docs/security-posture.md` and `plans/security-posture-details.md`: update ONLY when explicitly implementing or resolving a security control or gap. Do NOT modify these files as a side effect of unrelated changes (adding a config variable, fixing a bug, updating a profile, etc.). If a change has security implications but you were not asked to update the posture files, flag it in your response instead.
   - Documentation should never describe something that doesn't exist or omit something that does.
 - **Markdown table formatting**: Align separator rows to match column widths using dashes (e.g., `| ---------------------- |` not `| -- |` or `|--|`). Pad cell content with spaces to match the widest entry in each column so tables are readable in plain text.
 
@@ -127,18 +127,18 @@ Claude Code's `.claude` directory is bind-mounted from a Windows folder (`$Claud
 
 **Module - Public functions** (`ClaudeSandbox/Public/`):
 
-| Function                 | Role                                                                                                       |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Function                 | Role                                                                                                                                            |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Install-Sandbox`        | Full install orchestration: WSL setup, container, packages, user, persistence, profile, workflow, terminal. Requires fully populated `$Config`. |
-| `Uninstall-Sandbox`      | Terminates and unregisters distro, removes terminal profile; never touches `$ClaudePersistenceDir`. `-RemoveInstallDir` to delete disk files. |
-| `Set-SandboxProfile`     | Deploys a named bashrc profile (e.g., `default.sh`, `pretty.sh`)                                           |
-| `Set-SandboxWorkflow`    | Deploys a named workflow with token replacement (e.g., `default.sh`)                                       |
-| `Add-TerminalProfile`    | Adds/updates Windows Terminal profile for the distro                                                       |
-| `Remove-TerminalProfile` | Removes Windows Terminal profile entry                                                                     |
-| `Invoke-InSandbox`       | Executes a bash command inside the WSL distro (default user: root)                                         |
-| `Restart-Sandbox`        | Terminates distro and waits for restart                                                                    |
-| `Test-Sandbox`           | Verifies installation and security posture                                                                 |
-| `Update-Sandbox`         | Updates packages and re-deploys profile/workflow, then verifies                                            |
+| `Uninstall-Sandbox`      | Terminates and unregisters distro, removes terminal profile; never touches `$ClaudePersistenceDir`. `-RemoveInstallDir` to delete disk files.   |
+| `Set-SandboxProfile`     | Deploys a named bashrc profile (e.g., `default.sh`, `pretty.sh`)                                                                                |
+| `Set-SandboxWorkflow`    | Deploys a named workflow with token replacement (e.g., `default.sh`)                                                                            |
+| `Add-TerminalProfile`    | Adds/updates Windows Terminal profile for the distro                                                                                            |
+| `Remove-TerminalProfile` | Removes Windows Terminal profile entry                                                                                                          |
+| `Invoke-InSandbox`       | Executes a bash command inside the WSL distro (default user: root)                                                                              |
+| `Restart-Sandbox`        | Terminates distro and waits for restart                                                                                                         |
+| `Test-Sandbox`           | Verifies installation and security posture                                                                                                      |
+| `Update-Sandbox`         | Updates packages and re-deploys profile/workflow, then verifies                                                                                 |
 
 **Module - Private helpers** (`ClaudeSandbox/Private/`):
 
@@ -156,24 +156,24 @@ Claude Code's `.claude` directory is bind-mounted from a Windows folder (`$Claud
 
 **Module - Assets** (`ClaudeSandbox/Assets/`):
 
-| File                   | Role                                                                                                        |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `wsl.conf`             | WSL2 config template with `__DistroName__` and `__Username__` tokens                                        |
-| `profiles/default.sh`  | Standard Debian bashrc that sources `~/.bashrc.d/workflow.sh`                                               |
-| `profiles/pretty.sh`   | Enhanced bashrc with colored prompt and archive extractor utility                                           |
-| `workflows/default.sh` | Bash functions (`index-projects`, `mount-project`, `switch-project`) with tab completion and welcome banner |
-| `managed-settings.json` | Claude Code managed settings deployed to `/etc/claude-code/managed-settings.json`                          |
-| `managed-policy.md`    | Claude Code managed policy deployed to `/etc/claude-code/CLAUDE.md`                                         |
+| File                    | Role                                                                                                        |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `wsl.conf`              | WSL2 config template with `__DistroName__` and `__Username__` tokens                                        |
+| `profiles/default.sh`   | Standard Debian bashrc that sources `~/.bashrc.d/workflow.sh`                                               |
+| `profiles/pretty.sh`    | Enhanced bashrc with colored prompt and archive extractor utility                                           |
+| `workflows/default.sh`  | Bash functions (`index-projects`, `mount-project`, `switch-project`) with tab completion and welcome banner |
+| `managed-settings.json` | Claude Code managed settings deployed to `/etc/claude-code/managed-settings.json`                           |
+| `managed-policy.md`     | Claude Code managed policy deployed to `/etc/claude-code/CLAUDE.md`                                         |
 
 **Documentation:**
 
 | File                                | Role                                                                                |
 | ----------------------------------- | ----------------------------------------------------------------------------------- |
-| `docs/about.md`                      | Plain-English explanation of what the sandbox is and who it is for                   |
+| `docs/about.md`                     | Plain-English explanation of what the sandbox is and who it is for                  |
 | `docs/threat-model.md`              | Full STRIDE threat model with accepted risks and planned mitigations                |
 | `docs/setup-commands.md`            | Step-by-step manual setup guide (no installer)                                      |
 | `docs/safe-usage.md`                | User-facing guide to using Claude safely inside the sandbox                         |
-| `plans/security-posture.md`         | Security coverage summary with gap list                                             |
+| `docs/security-posture.md`          | Security coverage summary with gap list                                             |
 | `plans/security-posture-details.md` | Detailed security analysis: controls in place, gaps with severity, additional risks |
 | `docs/decisions/README.md`          | ADR index with links to all architecture decision records                           |
 | `docs/decisions/ADR-001..005`       | Architecture Decision Records (WSL2, iptables, sudo, persistence, curl-pipe-bash)   |

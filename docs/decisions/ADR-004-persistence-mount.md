@@ -20,11 +20,13 @@ Bind-mount ~/.claude from a Windows directory ($ClaudePersistenceDir) via /etc/f
 ## Security Implications
 
 This is the primary security trade-off in the persistence design. Claude has full read and write access to its own settings, conversation history, API credentials, and tool permission rules via the persistence mount. A compromised Claude session could:
+
 - Read conversation history from previous sessions
 - Widen its own tool permissions for future sessions by modifying settings.json
 - Read the Claude API key stored in the directory
 
 Mitigations considered and their outcomes:
+
 - Read-only mount: rejected - Claude cannot function with a read-only ~/.claude
 - Per-file ACLs: not supported by drvfs at the file level
 - Separate read-only mount for credentials: not supported by Claude Code's directory structure

@@ -112,7 +112,8 @@ function Install-Sandbox {
         -replace "__DistroName__",  $DistroName `
         -replace "__Username__",    $Username `
         -replace "__GpuEnabled__",  $gpuValue
-    Write-FileToDistro $DistroName "/etc/wsl.conf" $wslConfContent
+    Write-FileToDistro $DistroName "/tmp/wsl.conf" $wslConfContent
+    Invoke-InSandbox $DistroName "mv /tmp/wsl.conf /etc/wsl.conf && chmod 644 /etc/wsl.conf"
     Write-Ok "wsl.conf written"
 
     Write-Info "Restarting distro to apply wsl.conf..."
@@ -164,7 +165,8 @@ function Install-Sandbox {
         Write-Info "Deploying session timeout ($sessionTimeout seconds)..."
         $timeoutPath = Get-AssetPath "session-timeout.sh"
         $timeoutContent = (Get-Content $timeoutPath -Raw) -replace "__SESSION_TIMEOUT__", $sessionTimeout
-        Write-FileToDistro $DistroName "/etc/profile.d/session-timeout.sh" $timeoutContent
+        Write-FileToDistro $DistroName "/tmp/session-timeout.sh" $timeoutContent
+        Invoke-InSandbox $DistroName "mv /tmp/session-timeout.sh /etc/profile.d/session-timeout.sh && chmod 644 /etc/profile.d/session-timeout.sh"
         Write-Ok "Session timeout deployed (${sessionTimeout}s)"
     } else {
         Write-Info "Session timeout disabled (SessionTimeout = 0)"
@@ -175,10 +177,13 @@ function Install-Sandbox {
     Invoke-InSandbox $DistroName "mkdir -p /etc/claude-code"
     $managedSettingsPath = Get-AssetPath "managed-settings.json"
     $managedSettingsContent = Get-Content $managedSettingsPath -Raw
-    Write-FileToDistro $DistroName "/etc/claude-code/managed-settings.json" $managedSettingsContent
+    Write-FileToDistro $DistroName "/tmp/managed-settings.json" $managedSettingsContent
+    Invoke-InSandbox $DistroName "mv /tmp/managed-settings.json /etc/claude-code/managed-settings.json && chmod 644 /etc/claude-code/managed-settings.json"
+
     $managedPolicyPath = Get-AssetPath "managed-policy.md"
     $managedPolicyContent = Get-Content $managedPolicyPath -Raw
-    Write-FileToDistro $DistroName "/etc/claude-code/CLAUDE.md" $managedPolicyContent
+    Write-FileToDistro $DistroName "/tmp/managed-policy.md" $managedPolicyContent
+    Invoke-InSandbox $DistroName "mv /tmp/managed-policy.md /etc/claude-code/CLAUDE.md && chmod 644 /etc/claude-code/CLAUDE.md"
     Write-Ok "Managed settings and policy deployed"
 
     Write-Ok "Step 3 Complete: Sandbox environment configured"

@@ -10,6 +10,7 @@ A key goal is preventing Claude or code it runs from exfiltrating data over the 
 ## Decision
 
 Do not rely on iptables inside WSL2 for outbound filtering. Instead:
+
 - Rely on Claude's sandbox network proxy (allowedDomains) for bash commands (planned - not yet deployed)
 - Accept that Claude's built-in tools (WebFetch) are unfiltered
 - Document host-level options (Windows Firewall, host-side proxy) in safe-usage.md but do not automate them from inside the sandbox

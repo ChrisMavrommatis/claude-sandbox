@@ -36,16 +36,16 @@ When Claude Code runs directly on a developer's machine, it has access to the en
 
 ### Controls Summary
 
-| Category            | Key Controls                                                                                                         | Status                       |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| Host Isolation      | WSL2 Hyper-V boundary; interop disabled (S-001); automount disabled (S-003); Windows PATH excluded (S-002)           | Supported                    |
-| Filesystem          | Mount-on-demand (fstab-only, S-019); explicit RO/RW per project; path traversal validation (S-012)                   | Supported                    |
-| Access Control      | Non-root default user (S-006); password-gated sudo (S-007); umask enforcement (S-017)                                | Supported                    |
-| Process Containment | systemd as PID 1 (S-005); bubblewrap for Claude sandbox mode (S-009)                                                | Supported                    |
-| Application Layer   | Command blocklist; tool deny lists; per-project CLAUDE.md policies; worktree isolation                               | Partial - see posture matrix |
-| Audit & Logging     | Timestamped bash history (S-018); git audit trail on projects                                                        | Partial - no kernel audit    |
+| Category            | Key Controls                                                                                               | Status                       |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| Host Isolation      | WSL2 Hyper-V boundary; interop disabled (S-001); automount disabled (S-003); Windows PATH excluded (S-002) | Supported                    |
+| Filesystem          | Mount-on-demand (fstab-only, S-019); explicit RO/RW per project; path traversal validation (S-012)         | Supported                    |
+| Access Control      | Non-root default user (S-006); password-gated sudo (S-007); umask enforcement (S-017)                      | Supported                    |
+| Process Containment | systemd as PID 1 (S-005); bubblewrap for Claude sandbox mode (S-009)                                       | Supported                    |
+| Application Layer   | Command blocklist; tool deny lists; per-project CLAUDE.md policies; worktree isolation                     | Partial - see posture matrix |
+| Audit & Logging     | Timestamped bash history (S-018); git audit trail on projects                                              | Partial - no kernel audit    |
 
-Full controls matrix with check codes: [plans/security-posture.md](../plans/security-posture.md)
+Full controls matrix with check codes: [docs/security-posture.md](security-posture.md)
 
 ### Known Limitations
 

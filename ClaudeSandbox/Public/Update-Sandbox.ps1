@@ -31,10 +31,13 @@ function Update-Sandbox {
     Invoke-InSandbox $DistroName "mkdir -p /etc/claude-code"
     $managedSettingsPath = Get-AssetPath "managed-settings.json"
     $managedSettingsContent = Get-Content $managedSettingsPath -Raw
-    Write-FileToDistro $DistroName "/etc/claude-code/managed-settings.json" $managedSettingsContent
+    Write-FileToDistro $DistroName "/tmp/managed-settings.json" $managedSettingsContent
+    Invoke-InSandbox $DistroName "mv /tmp/managed-settings.json /etc/claude-code/managed-settings.json && chmod 644 /etc/claude-code/managed-settings.json"
+
     $managedPolicyPath = Get-AssetPath "managed-policy.md"
     $managedPolicyContent = Get-Content $managedPolicyPath -Raw
-    Write-FileToDistro $DistroName "/etc/claude-code/CLAUDE.md" $managedPolicyContent
+    Write-FileToDistro $DistroName "/tmp/managed-policy.md" $managedPolicyContent
+    Invoke-InSandbox $DistroName "mv /tmp/managed-policy.md /etc/claude-code/CLAUDE.md && chmod 644 /etc/claude-code/CLAUDE.md"
     Write-Ok "Managed settings and policy re-deployed"
 
     # -- Verify ---------------------------------------------------------------------------
