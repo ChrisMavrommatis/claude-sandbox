@@ -18,7 +18,7 @@ Claude Sandbox is a pre-configured WSL2 Debian environment that isolates Claude 
 | Filesystem          | Mount-on-demand (fstab-only, S-019); explicit RO/RW per project; path traversal validation (S-012)                         | Supported                 |
 | Access Control      | Non-root default user (S-006); password-gated sudo (S-007); umask enforcement (S-017)                                      | Supported                 |
 | Process Containment | systemd as PID 1 (S-005); bubblewrap for Claude sandbox mode (S-009)                                                       | Supported                 |
-| Application Layer   | Managed settings + policy (/etc/claude-code/, I-013/I-014); command deny list; sandbox mode enforced (failIfUnavailable)   | Supported                 |
+| Application Layer   | Managed settings + policy (/etc/claude-code/, I-013/I-014/S-021); curl/wget/rm-rf/dd/mkfs denied; sandbox mode enforced   | Supported                 |
 | Audit & Logging     | Timestamped bash history (S-018); git audit trail on projects                                                              | Partial - no kernel audit |
 
 Full controls matrix with check codes: [docs/security-posture.md](docs/security-posture.md)

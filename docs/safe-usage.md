@@ -36,7 +36,7 @@ Start with `plan` for unfamiliar projects.
 
 Enable filesystem and network isolation for bash commands:
 
-```
+```bash
 /sandbox
 ```
 
@@ -67,19 +67,22 @@ Create a `CLAUDE.md` in any project root. Claude reads it at the start of every 
 - Always use feature branches, never commit to main
 ```
 
+The sandbox also deploys a managed policy at `/etc/claude-code/CLAUDE.md` that applies to all sessions automatically. Like project `CLAUDE.md` files, this is a behavioral guardrail - it relies on Claude Code following the instructions, not on the operating system enforcing them. For hard blocks, use deny rules (see below).
+
 ---
 
 ## Deny lists
 
-Block commands permanently in `~/.claude/settings.json`:
+The sandbox's managed settings already block `curl`, `wget`, `rm -rf /*`, `dd`, and `mkfs` for Claude (enforced via `/etc/claude-code/managed-settings.json`, verified by S-021).
+
+Add your own permanent blocks in `~/.claude/settings.json`:
 
 ```json
 {
   "permissions": {
     "deny": [
-      "Bash(rm -rf /*)",
-      "Bash(curl *)",
-      "Bash(wget *)"
+      "Bash(sudo *)",
+      "Bash(apt-get install *)"
     ]
   }
 }

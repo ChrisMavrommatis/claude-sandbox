@@ -12,6 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `docs/security-posture.md` and `plans/security-posture-details.md`: update ONLY when explicitly implementing or resolving a security control or gap. Do NOT modify these files as a side effect of unrelated changes (adding a config variable, fixing a bug, updating a profile, etc.). If a change has security implications but you were not asked to update the posture files, flag it in your response instead.
   - Documentation should never describe something that doesn't exist or omit something that does.
 - **Markdown table formatting**: Align separator rows to match column widths using dashes (e.g., `| ---------------------- |` not `| -- |` or `|--|`). Pad cell content with spaces to match the widest entry in each column so tables are readable in plain text.
+- **Markdown heading levels (MD001)**: Heading levels must increment by one at a time. Never jump from `##` directly to `####` -- add a `###` level in between, or use `###` for the items directly.
+- **Blank lines around headings (MD022)**: Every heading must have one blank line above it and one blank line below it. No exceptions -- this applies to all heading levels including `####`.
+- **Blank lines around lists (MD032)**: Every bullet or numbered list must have one blank line before the first item and one blank line after the last item.
 
 ## What This Project Is
 
@@ -231,6 +234,7 @@ When adding new checks: assign the next code in sequence, add the check to `Test
 | `S-018`   | Security     | History timestamps enabled (HISTTIMEFORMAT)          |
 | `S-019`   | Security     | fstab-only mounts enabled (mountFsTab = true)        |
 | `S-020`   | Security     | Session timeout configured (when SessionTimeout > 0) |
+| `S-021`   | Security     | Managed settings deny curl and wget                  |
 
 ## Configuration
 

@@ -4,7 +4,9 @@
     "deny": [
       "Bash(rm -rf /*)",
       "Bash(dd *)",
-      "Bash(mkfs *)"
+      "Bash(mkfs *)",
+      "Bash(curl *)",
+      "Bash(wget *)"
     ]
   },
   "sandbox": {

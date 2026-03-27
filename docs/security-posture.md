@@ -44,6 +44,7 @@
 | systemd as PID 1      | Proper cgroup management and service supervision                  | MEDIUM | Supported     | S-005 |
 | Bubblewrap namespaces | `bwrap` installed for Claude's internal sandbox mode              | MEDIUM | Supported     | S-009 |
 | Resource limits       | CPU, memory, disk quotas via `.wslconfig` or systemd slices       | MEDIUM | Not Supported | -     |
+| AppArmor profiles     | Per-process MAC restricting filesystem and network access         | LOW    | Not Supported | -     |
 
 ## GPU
 
@@ -82,7 +83,7 @@
 | Managed-only permission rules   | `allowManagedPermissionRulesOnly` prevents user/project allow rules             | MEDIUM | Not Supported | Sandbox (when impl.) | -     |
 | PreToolUse hooks                | Runtime hooks that can block specific tool calls before execution               | MEDIUM | Not Supported | Sandbox (when impl.) | -     |
 | Write access restriction        | Claude can only write to the folder where it was started and subfolders         | MEDIUM | Supported     | User                 | -     |
-| Command blocklist               | `curl` and `wget` blocked by default in Claude; defense-in-depth                | MEDIUM | Supported     | Claude default       | -     |
+| Command blocklist               | `curl` and `wget` denied via managed settings; defense-in-depth                 | MEDIUM | Supported     | Managed settings     | S-021 |
 | Per-project policies            | `CLAUDE.md` declares off-limits paths, branch rules, constraints                | MEDIUM | Supported     | User                 | -     |
 | Tool deny lists                 | `~/.claude/settings.json` permanently blocks specific commands                  | MEDIUM | Supported     | User                 | -     |
 | Worktree isolation              | `claude -w` works on a separate branch; main untouched                          | MEDIUM | Supported     | User                 | -     |

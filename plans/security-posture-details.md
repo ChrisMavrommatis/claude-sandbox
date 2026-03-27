@@ -278,3 +278,46 @@ Ordered by impact: HIGH first, then MEDIUM, then LOW.
 
 **Monitor for:** Official apt/npm/brew packages that would allow version pinning.
 
+---
+
+## AppArmor profile enforcement `LOW`
+
+**Gap:** No per-process mandatory access control profiles restricting what
+Claude or its subprocesses can access at the kernel level.
+
+**Why AppArmor is not viable on WSL2:**
+
+The stock WSL2 kernel shipped by Microsoft is not compiled with AppArmor
+support. Ubuntu's own WSL documentation states AppArmor is installed but
+not enabled because it requires kernel features not present in the WSL2
+kernel. Forcing it via `kernelCommandLine = apparmor=1 security=apparmor`
+in `.wslconfig` results in the AppArmor service failing with
+`ConditionSecurity=apparmor was not met`.
+
+A custom WSL2 kernel with AppArmor compiled in is technically possible but
+has a critical problem: AppArmor kernel state is shared across ALL WSL2
+distros on the machine. A profile loaded inside claude-sandbox affects every
+other distro. This makes AppArmor unsafe to deploy in a shared-kernel
+environment.
+
+**Status:** Blocked. Not planned.
+
+**What we use instead:**
+
+| AppArmor capability           | Equivalent control in this sandbox                      |
+| ----------------------------- | ------------------------------------------------------- |
+| Filesystem access per-process | bubblewrap namespaces (S-009, Claude /sandbox mode)     |
+| Network access per-process    | Sandbox network proxy allowedDomains (planned)          |
+| Restrict dangerous commands   | Managed deny list in managed-settings.json (I-013)      |
+| Privilege escalation guard    | Non-root user (S-006) + password-gated sudo (S-007)     |
+
+Bubblewrap is more appropriate than AppArmor for this use case: AppArmor
+requires static profiles defined per binary path, which does not suit
+Claude's dynamic command execution. Bubblewrap sandboxes at the process
+level at runtime with no profile authoring required.
+
+**If this changes:** Microsoft would need to ship AppArmor support in the
+default WSL2 kernel, AND resolve the cross-distro state leakage problem.
+Monitor https://github.com/microsoft/WSL/issues/8709 for AppArmor support
+upstream.
+

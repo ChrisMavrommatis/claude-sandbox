@@ -276,9 +276,22 @@ function Test-Sandbox {
     }
 
     # S-013: Password is not the default 'changeme' (warn-only)
-    $pwCheck = Get-FromSandbox "echo 'changeme' | su -c 'echo ok' $Username 2>/dev/null"
-    if ($pwCheck -and $pwCheck.Trim() -eq "ok") {
-        Write-CheckResult "S-013" "WARN" "Password is still 'changeme'"
+    # NOTE: crypt and spwd are deprecated in Python 3.13 and removed. Debian Bookworm
+    # ships Python 3.11 so this is safe for now. Revisit when the base image moves to
+    # a distro that ships Python 3.13+ (e.g. Debian Trixie or Ubuntu 25.04+).
+    $pwCheck = Get-FromSandbox @"
+python3 -c "
+import crypt, spwd
+try:
+    entry = spwd.getspnam('$Username')
+    result = crypt.crypt('changeme', entry.sp_pwdp)
+    print('match' if result == entry.sp_pwdp else 'no')
+except Exception:
+    print('error')
+" 2>/dev/null
+"@
+    if ($pwCheck -and $pwCheck.Trim() -eq "match") {
+        Write-CheckResult "S-013" "WARN" "Password is still 'changeme' -- change it"
     } else {
         Write-CheckResult "S-013" "PASS" "Password changed from default"
     }
@@ -319,6 +332,14 @@ function Test-Sandbox {
         Write-CheckResult "S-017" "FAIL" "umask 022 not found in profile"
     }
 
+    # S-018: History timestamps enabled for audit trail
+    $histCheck = Get-FromSandbox "grep -q 'HISTTIMEFORMAT' /home/$Username/.bashrc 2>/dev/null && echo yes"
+    if ($histCheck -and $histCheck.Trim() -eq "yes") {
+        Write-CheckResult "S-018" "PASS" "History timestamps enabled"
+    } else {
+        Write-CheckResult "S-018" "FAIL" "HISTTIMEFORMAT not set in profile"
+    }
+
     # S-019: fstab-only mounts (mountFsTab = true in wsl.conf)
     if ($wslConfText -match 'mountFsTab\s*=\s*true') {
         Write-CheckResult "S-019" "PASS" "fstab-only mounts enabled"
@@ -335,14 +356,19 @@ function Test-Sandbox {
         } else {
             Write-CheckResult "S-020" "FAIL" "Session timeout not properly configured"
         }
+    } else {
+        Write-CheckResult "S-020" "PASS" "Session timeout disabled (SessionTimeout = 0)"
     }
 
-    # S-018: History timestamps enabled for audit trail
-    $histCheck = Get-FromSandbox "grep -q 'HISTTIMEFORMAT' /home/$Username/.bashrc 2>/dev/null && echo yes"
-    if ($histCheck -and $histCheck.Trim() -eq "yes") {
-        Write-CheckResult "S-018" "PASS" "History timestamps enabled"
+ 
+    # S-021: Managed settings contain curl/wget deny rules
+    $managedSettings = Get-FromSandbox "cat /etc/claude-code/managed-settings.json 2>/dev/null"
+    $hasCurlDeny = $managedSettings -match 'Bash\(curl \*\)'
+    $hasWgetDeny = $managedSettings -match 'Bash\(wget \*\)'
+    if ($hasCurlDeny -and $hasWgetDeny) {
+        Write-CheckResult "S-021" "PASS" "Managed settings block curl and wget"
     } else {
-        Write-CheckResult "S-018" "FAIL" "HISTTIMEFORMAT not set in profile"
+        Write-CheckResult "S-021" "FAIL" "Managed settings missing curl/wget deny rules"
     }
 
     # =====================================================================================

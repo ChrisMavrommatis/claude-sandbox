@@ -82,96 +82,245 @@ graph TB
 
 ## 5. Threat Actors
 
-| Actor                                            | Entry Point                                  | Goal                                                   | In Scope? |
-| ------------------------------------------------ | -------------------------------------------- | ------------------------------------------------------ | --------- |
-| Malicious code executed by Claude                | Bash command or package install              | Exfiltrate credentials, damage host filesystem         | YES       |
-| Prompt injection via project files               | Claude reads a source file with injections   | Cause Claude to act outside intended scope             | YES       |
-| Prompt injection via web content                 | Claude fetches a URL with injected content   | Same as above                                          | YES       |
-| Compromised npm / pip / apt package              | Package installed during a session           | Exfiltrate data, establish persistence inside sandbox  | YES       |
-| Claude acting outside intended scope             | Any tool - misunderstanding or hallucination | Modify wrong files, delete data, access wrong projects | YES       |
-| Malicious project code crafted to exploit Claude | Claude reads source files                    | Escape sandbox, pivot to other projects or host        | YES       |
-| External attacker via network                    | No inbound services exposed                  | N/A                                                    | NO        |
-| Physical access to machine                       | Out of scope                                 | N/A                                                    | NO        |
-| Nation-state / APT                               | Out of scope                                 | N/A                                                    | NO        |
+Out of scope: external attacker via network (no inbound services), physical access, nation-state / APT.
+
+### Malicious code executed by Claude
+
+- **Entry Point:** Bash command or package install
+- **Goal:** Exfiltrate credentials, damage host filesystem
+
+### Prompt injection via project files
+
+- **Entry Point:** Claude reads a source file containing injected instructions
+- **Goal:** Cause Claude to act outside the intended scope of the session
+
+### Prompt injection via web content
+
+- **Entry Point:** Claude fetches a URL with injected content (WebFetch)
+- **Goal:** Same as above
+
+### Compromised npm / pip / apt package
+
+- **Entry Point:** Package installed during a session
+- **Goal:** Exfiltrate data, establish persistence inside the sandbox
+
+### Claude acting outside intended scope
+
+- **Entry Point:** Any tool - misunderstanding or hallucination
+- **Goal:** Modify wrong files, delete data, access wrong projects
+
+### Malicious project code crafted to exploit Claude
+
+- **Entry Point:** Claude reads source files
+- **Goal:** Escape sandbox, pivot to other projects or host
 
 ## 6. STRIDE Analysis
 
+**Status values:** Mitigated / Partial / Planned / Accepted / Not enforced.
+
 ### A. WSL2 Boundary
 
-| Threat Type            | Scenario                                           | Mitigated?   | Control                                                  | Residual Risk                                                      |
-| ---------------------- | -------------------------------------------------- | ------------ | -------------------------------------------------------- | ------------------------------------------------------------------ |
-| Spoofing               | Sandbox process impersonates Windows host process  | Partial      | Interop disabled (S-001); no Windows executable access   | Kernel-level exploit could break this                              |
-| Tampering              | Sandbox modifies Windows host files                | Mitigated    | Automount disabled (S-003); no drive access without mount | Explicitly mounted RW projects are writable                       |
-| Repudiation            | Actions inside sandbox leave no trace              | Partial      | Bash history timestamped (S-018); git audit trail        | No kernel-level audit (auditd not used on WSL2)                    |
-| Info Disclosure        | Sandbox reads host files outside mounted projects  | Mitigated    | Automount disabled (S-003); fstab-only (S-019); PATH excluded (S-002) | Persistence mount and active project mount are accessible |
-| Denial of Service      | Sandbox exhausts host CPU / memory                 | Partial      | WSL2 VM provides some isolation                          | No resource quotas configured - accepted gap                       |
-| Elevation of Privilege | Sandbox process gains Windows host privileges      | Partial      | Interop disabled (S-001); protectBinfmt (S-004)          | WSL2 is not a full VM; kernel exploit could escalate               |
+#### Spoofing - Sandbox process impersonates Windows host process
+
+- **Control:** Interop disabled (S-001); no Windows executable access from inside distro
+- **Status:** Partial
+- **Residual Risk:** A kernel-level exploit could cross the interop boundary. WSL2 is not a full VM; the hypervisor layer reduces but does not eliminate risk.
+
+#### Tampering - Sandbox modifies Windows host files
+
+- **Control:** Automount disabled (S-003); no Windows drive access without an explicit mount
+- **Status:** Mitigated
+- **Residual Risk:** Explicitly mounted RW projects remain writable by design. The control prevents accidental access to unmounted drives, not to files the user has intentionally shared.
+
+#### Repudiation - Actions inside sandbox leave no trace
+
+- **Control:** Bash history timestamped (S-018); git audit trail on all project changes
+- **Status:** Partial
+- **Residual Risk:** No kernel-level audit (auditd is unreliable on WSL2). History can be cleared by a sufficiently motivated or compromised process. Suitable for most developer workloads; not for compliance-grade audit requirements.
+
+#### Info Disclosure - Sandbox reads host files outside mounted projects
+
+- **Control:** Automount disabled (S-003); fstab-only mounts (S-019); Windows PATH excluded (S-002)
+- **Status:** Mitigated
+- **Residual Risk:** The persistence mount (`~/.claude`) and any explicitly mounted project are always accessible. These are by design; no mitigation applies to them.
+
+#### Denial of Service - Sandbox exhausts host CPU or memory
+
+- **Control:** WSL2 VM boundary provides basic process isolation from Windows
+- **Status:** Partial
+- **Residual Risk:** No per-process or per-distro resource quotas are configured. A runaway process inside the sandbox can still pressure the host. Accepted gap -- see section 7.
+
+#### Elevation of Privilege - Sandbox process gains Windows host privileges
+
+- **Control:** Interop disabled (S-001); protectBinfmt (S-004) prevents registering binfmt handlers on the host kernel
+- **Status:** Partial
+- **Residual Risk:** WSL2 is not a full VM. A kernel-level exploit or WSL2 vulnerability could permit escalation. This is outside the threat model scope (WSL2 vulnerabilities are not in scope).
+
+---
 
 ### B. Project Mount System
 
-| Threat Type            | Scenario                                                | Mitigated? | Control                                                     | Residual Risk                                                                  |
-| ---------------------- | ------------------------------------------------------- | ---------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Spoofing               | Claude accesses a project by forging its mount path     | Mitigated  | Path traversal validation (S-012) rejects names with / \ .. |                                                                                |
-| Tampering              | Claude modifies files in a RO-mounted project           | Mitigated  | Explicit --ro flag enforced at mount; remount detection      | User must choose RO at mount time - not automatic                              |
-| Info Disclosure        | Claude reads credentials in a mounted project           | Partial    | RO mount prevents writes; does not prevent reads             | If project contains .env or keys and is mounted, Claude can read them          |
-| Info Disclosure        | Claude accesses projects not currently mounted           | Mitigated  | Mount-on-demand; fstab-only mounts (S-019)                  |                                                                                |
-| Elevation of Privilege | Path traversal escapes mount point to host filesystem   | Mitigated  | Project name validation (S-012)                             |                                                                                |
+#### Spoofing - Claude accesses a project by forging its mount path
+
+- **Control:** Path traversal validation (S-012) rejects project names containing `/`, `\`, or `..`
+- **Status:** Mitigated
+- **Residual Risk:** None identified. Leading `/` is also rejected because it contains the `/` character.
+
+#### Tampering - Claude modifies files in a read-only mounted project
+
+- **Control:** Explicit `--ro` flag enforced at mount time; remount detection prevents silently upgrading to RW
+- **Status:** Mitigated
+- **Residual Risk:** The user must consciously choose `--ro` at mount time. There is no automatic read-only default. If the user mounts RW, all files are writable.
+
+#### Info Disclosure - Claude reads credentials in a mounted project
+
+- **Control:** Mounting with `--ro` prevents writes but does not restrict reads. No per-file ACL mechanism exists on drvfs.
+- **Status:** Partial
+- **Residual Risk:** If a project directory contains `.env` files, API keys, or connection strings and is mounted (RO or RW), Claude can read them. The only mitigation is to keep credentials outside the mounted path. A PreToolUse hook (planned) could detect and block reads of credential file patterns.
+
+#### Info Disclosure - Claude accesses projects not currently mounted
+
+- **Control:** Mount-on-demand via `switch-project`; fstab-only mounts (S-019) prevent automatic drive access
+- **Status:** Mitigated
+- **Residual Risk:** None. Projects not in fstab and not explicitly mounted are inaccessible.
+
+#### Elevation of Privilege - Path traversal escapes mount point to host filesystem
+
+- **Control:** Project name validation (S-012) blocks traversal characters before any mount is attempted
+- **Status:** Mitigated
+- **Residual Risk:** None identified.
+
+---
 
 ### C. Persistence Mount (.claude directory)
 
-| Threat Type     | Scenario                                                    | Mitigated?     | Control                                                     | Residual Risk                                                                                        |
-| --------------- | ----------------------------------------------------------- | -------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Tampering       | Claude modifies its own tool deny lists or permission settings | Partial       | Mount security (S-010, S-011); managed settings deployed (I-013) overrides permissions at runtime | A compromised session can still modify settings.json; managed settings takes precedence at runtime but does not prevent the write. |
-| Info Disclosure | Claude reads its own conversation history, API credentials  | Accepted       | Required for Claude to function; no mitigation planned       | All session state is readable by Claude - by design                                                  |
-| Repudiation     | Changes to Claude settings leave no audit trail             | Partial        | Git trail covers project changes; settings changes not tracked | ConfigChange hooks (planned) would address this                                                     |
+#### Tampering - Claude modifies its own tool deny lists or permission settings
+
+- **Control:** Managed settings deployed to `/etc/claude-code/managed-settings.json` (I-013) override user settings at runtime; mount secured with correct ownership and flags (S-010, S-011)
+- **Status:** Partial
+- **Residual Risk:** A compromised session can still write to `~/.claude/settings.json`. Managed settings take precedence at runtime and cannot be overridden by the user, but the file write itself is not prevented. ConfigChange hooks (planned) would add an audit trail.
+
+#### Info Disclosure - Claude reads its own conversation history and API credentials
+
+- **Control:** None planned. Required for Claude to function.
+- **Status:** Accepted
+- **Residual Risk:** All session state -- conversation history, API credentials, memory, settings -- is readable by the Claude process across all sessions. This is by design. Users should not store secrets in `~/.claude`.
+
+#### Repudiation - Changes to Claude settings leave no audit trail
+
+- **Control:** Git audit trail covers all project file changes; Claude settings changes are not tracked
+- **Status:** Partial
+- **Residual Risk:** Mid-session settings changes (e.g., adding an allow rule) are not logged anywhere. ConfigChange hooks (planned) would address this.
+
+---
 
 ### D. Claude Permission System
 
-| Threat Type            | Scenario                                          | Mitigated?       | Control                                                     | Residual Risk                                                                        |
-| ---------------------- | ------------------------------------------------- | ---------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Elevation of Privilege | Claude runs --dangerously-skip-permissions         | Not enforced     | User-selected mode; sandbox cannot prevent it               | In unattended Scenario B, if user pre-approves, no runtime enforcement exists        |
-| Elevation of Privilege | Claude escalates to root via sudo                 | Mitigated        | Password-gated sudo (S-007); requires human to type password | Unattended sessions cannot sudo without pre-cached credentials                      |
-| Tampering              | Claude widens its own permissions mid-session      | Mitigated        | Managed settings (I-013) enforces deny rules at runtime      | Managed settings takes precedence; ConfigChange hooks (planned) would add audit      |
+#### Elevation of Privilege - Claude runs --dangerously-skip-permissions
+
+- **Control:** None. This is a user-selected mode that bypasses all approval prompts.
+- **Status:** Not enforced
+- **Residual Risk:** In unattended Scenario B, if the user pre-approves this mode, there is no runtime enforcement of any permission boundary. The sandbox's filesystem and process isolation still applies, but all tool calls proceed without prompts. The blast radius is limited to what the sandbox can access, not the Windows host.
+
+#### Elevation of Privilege - Claude escalates to root via sudo
+
+- **Control:** Password-gated sudo (S-007); no NOPASSWD entries; requires a human to type the password
+- **Status:** Mitigated
+- **Residual Risk:** In unattended sessions, sudo cannot proceed without a pre-cached credential. This is a strong control for Scenario B. An attacker who can execute arbitrary code as the sandbox user still cannot become root without the password.
+
+#### Tampering - Claude widens its own permissions mid-session
+
+- **Control:** Managed settings (I-013) enforces deny rules at runtime and takes precedence over user settings; deny rules block curl, wget, rm -rf /*, dd, and mkfs (S-021)
+- **Status:** Mitigated
+- **Residual Risk:** Claude can still attempt to write a permissive `~/.claude/settings.json`, but managed settings override it. ConfigChange hooks (planned) would add an audit trail for such attempts.
+
+---
 
 ### E. Bash Command Execution (Bubblewrap)
 
-| Threat Type     | Scenario                                           | Mitigated?       | Control                                                             | Residual Risk                                                      |
-| --------------- | -------------------------------------------------- | ---------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Info Disclosure | Sandboxed bash exfiltrates data over network       | Planned          | Sandbox network proxy with allowedDomains - planned, not deployed   | Until deployed: bash has unrestricted outbound access              |
-| Info Disclosure | Compromised package beacons home during install    | Planned          | Same as above                                                       |                                                                    |
-| Tampering       | Bash command escapes bubblewrap sandbox             | Partial          | Bubblewrap namespaces (S-009); failIfUnavailable enforced (I-013)    | Depends on kernel version; sandbox refuses to run if bwrap fails  |
-| Denial of Service | Bash process exhausts resources                  | Partial          | WSL2 VM boundary                                                    | No per-process quotas                                              |
+#### Info Disclosure - Sandboxed bash exfiltrates data over the network
+
+- **Control:** Sandbox network proxy with `allowedDomains` -- planned, not yet deployed
+- **Status:** Planned
+- **Residual Risk:** Until the network proxy is deployed, bash commands have unrestricted outbound network access. A malicious package or script can send data to any external host. This is the highest-priority unimplemented control.
+
+#### Info Disclosure - Compromised package beacons home during install
+
+- **Control:** Same as above -- sandbox network proxy (planned)
+- **Status:** Planned
+- **Residual Risk:** Same as above. Any `npm install`, `pip install`, or `apt-get install` can trigger network callbacks. Deny rules block curl/wget (S-021) but not direct socket access from package scripts.
+
+#### Tampering - Bash command escapes bubblewrap sandbox
+
+- **Control:** Bubblewrap user namespaces (S-009); `sandbox.failIfUnavailable = true` (I-013) prevents Claude from running bash if bubblewrap is unavailable
+- **Status:** Partial
+- **Residual Risk:** Bubblewrap security depends on the kernel version and correct namespace support. A kernel vulnerability or misconfiguration could allow escape. The `failIfUnavailable` flag ensures the sandbox never silently degrades to unsandboxed execution.
+
+#### Denial of Service - Bash process exhausts resources
+
+- **Control:** WSL2 VM boundary provides basic isolation from Windows processes
+- **Status:** Partial
+- **Residual Risk:** No per-process CPU, memory, or disk quotas are configured. A runaway bash subprocess can exhaust available resources. Accepted gap.
 
 > **Note on CVE-2025-66479:** A logic bug in Claude Code <= v2.0.55 caused the sandbox
-> network proxy to silently not start when allowedDomains was set to [] (empty array).
-> The intended behavior - "block all outbound network" - had no effect.
+> network proxy to silently not start when `allowedDomains` was set to `[]` (empty array).
+> The intended behavior -- "block all outbound network" -- had no effect.
 > Fixed in v2.0.55. Verify your Claude Code version is above this before relying
-> on allowedDomains for network control.
+> on `allowedDomains` for network control.
 
 ## 7. Accepted Risks
 
-| Risk                                                           | Justification                                                                                                              | What Would Change This                                                                                      |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Outbound network not filtered at host level                    | WSL2 NAT architecture makes host-level rules unreliable. Sandbox network proxy (planned) will mitigate bash traffic.       | WSL2 gains reliable firewall integration, or user deploys a host-side proxy.                                |
-| Claude can read credentials in mounted RW project directories  | drvfs does not support per-file ACLs inside the mount. No control short of keeping credentials out of project directories. | PreToolUse hook (planned) to detect and block reads of .env / *.config / connection string patterns.         |
-| Claude can modify its own settings via persistence mount       | Required for Claude to function.                                                                                           | Managed settings (I-013) takes precedence at runtime; does not prevent writes but overrides them.            |
-| Claude Code installed via curl-pipe-bash with no checksum      | No alternative distribution from Anthropic. HTTPS mitigates MITM but not server-side compromise.                           | Anthropic publishes an apt, npm, or brew package.                                                            |
-| Claude Code self-updates without version control               | No --no-auto-update flag exists. External tool managed by Anthropic.                                                       | Anthropic adds version pinning support.                                                                      |
-| No kernel-level audit trail                                    | auditd is unreliable on WSL2 kernels. Bash history (S-018) and git trail are sufficient for current threat model.          | Enterprise / compliance deployment requiring full audit trail.                                                |
-| Unattended sessions have no runtime human oversight            | By design - Scenario B is an accepted use case. Sandbox limits blast radius.                                                | PreToolUse hooks (planned) add runtime validation for dangerous patterns.                                    |
-| WebFetch not filtered by any sandbox control                   | Claude's built-in tools run outside bubblewrap. No application-layer proxy exists for them.                                | Claude Code exposes a hook or proxy interface for built-in tool network calls.                                |
+### Outbound network not filtered at host level
 
-## 7.5 Planned Mitigations
+- **Justification:** WSL2 NAT architecture makes host-level firewall rules unreliable (rules cannot track dynamic WSL2 IP ranges). Sandbox network proxy (planned) will mitigate bash command traffic specifically.
+- **What Would Change This:** WSL2 gains reliable firewall integration, or the user deploys a host-side proxy and configures Claude's allowedDomains.
 
-Controls not yet implemented but actively tracked in [security-posture-details.md](../plans/security-posture-details.md). When deployed, the corresponding Accepted Risk row will be updated.
+### Claude can read credentials in mounted RW project directories
 
-| Control                                                         | Threat It Closes                                         | Priority |
-| --------------------------------------------------------------- | -------------------------------------------------------- | -------- |
-| Sandbox network proxy (allowedDomains)                          | Unrestricted outbound bash traffic                       | HIGH     |
-| PreToolUse hooks                                                | Runtime blocking of credential reads, dangerous patterns | MEDIUM   |
-| ConfigChange hooks                                              | Unaudited settings changes mid-session                   | LOW      |
+- **Justification:** drvfs does not support per-file ACLs inside the mount. There is no mechanism to allow Claude to read source files but not `.env` files within the same directory tree.
+- **What Would Change This:** A PreToolUse hook (planned) could detect and block reads matching credential file patterns (`.env`, `*.config`, connection string patterns).
 
-## 8. Security Controls Reference
+### Claude can modify its own settings via persistence mount
+
+- **Justification:** The persistence mount must be writable for Claude to function. Claude stores session state, memory, and settings there.
+- **What Would Change This:** Not planned. Managed settings (I-013) already override user settings at runtime; the write access is acceptable because managed settings cannot be overridden by anything Claude writes to disk.
+
+### Claude Code installed via curl-pipe-bash with no checksum verification
+
+- **Justification:** No alternative distribution exists from Anthropic. HTTPS mitigates man-in-the-middle attacks but does not protect against server-side compromise of the install script.
+- **What Would Change This:** Anthropic publishes a signed apt, npm, or brew package with verifiable checksums.
+
+### Claude Code self-updates automatically without version control
+
+- **Justification:** No `--no-auto-update` flag exists. Claude Code is an external tool managed by Anthropic; version pinning is not available.
+- **What Would Change This:** Anthropic adds version pinning or a stable release channel with a lockfile.
+
+### No kernel-level audit trail
+
+- **Justification:** `auditd` is unreliable on WSL2 kernels. Bash history with timestamps (S-018) and git history on projects provide sufficient audit capability for the current threat model.
+- **What Would Change This:** Enterprise or compliance deployment requiring a full tamper-evident audit trail of all syscalls.
+
+### Unattended sessions have no runtime human oversight
+
+- **Justification:** Scenario B (unattended operation) is an accepted and intentional use case. Sandbox controls limit the blast radius -- the Windows host and unmounted projects are not accessible.
+- **What Would Change This:** PreToolUse hooks (planned) can add runtime validation and blocking for high-risk patterns without requiring human presence.
+
+### WebFetch not filtered by any sandbox control
+
+- **Justification:** Claude's built-in tools (WebFetch, Read, Write, Edit) run inside the Claude process, outside bubblewrap. There is no application-layer proxy for built-in tool network calls.
+- **What Would Change This:** Claude Code exposes a hook or proxy interface for built-in tool network requests, or Anthropic adds `allowedDomains`-style filtering to WebFetch.
+
+## 8. Planned Mitigations
+
+Controls not yet implemented but actively tracked in [security-posture-details.md](../plans/security-posture-details.md). When deployed, the corresponding Accepted Risk entry above will be updated.
+
+| Control                                | Threat It Closes                                         | Priority |
+| -------------------------------------- | -------------------------------------------------------- | -------- |
+| Sandbox network proxy (allowedDomains) | Unrestricted outbound bash traffic                       | HIGH     |
+| PreToolUse hooks                       | Runtime blocking of credential reads, dangerous patterns | MEDIUM   |
+| ConfigChange hooks                     | Unaudited settings changes mid-session                   | LOW      |
+
+## 9. Security Controls Reference
 
 For the full controls matrix with implementation status and verification check codes, see [docs/security-posture.md](security-posture.md).
 

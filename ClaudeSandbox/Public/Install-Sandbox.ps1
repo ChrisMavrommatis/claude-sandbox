@@ -172,7 +172,7 @@ function Install-Sandbox {
         Write-Info "Session timeout disabled (SessionTimeout = 0)"
     }
 
-    # Deploy managed settings and policy [I-013, I-014]
+    # Deploy managed settings and policy [I-013, I-014, S-021]
     Write-Info "Deploying managed settings and policy..."
     Invoke-InSandbox $DistroName "mkdir -p /etc/claude-code"
     $managedSettingsPath = Get-AssetPath "managed-settings.json"
