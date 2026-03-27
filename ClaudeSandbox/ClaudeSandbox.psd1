@@ -15,7 +15,8 @@
         'Invoke-InSandbox',
         'Restart-Sandbox',
         'Test-Sandbox',
-        'Update-Sandbox'
+        'Update-Sandbox',
+        'Set-SandboxPolicy'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()

@@ -8,9 +8,5 @@
       "Bash(curl *)",
       "Bash(wget *)"
     ]
-  },
-  "sandbox": {
-    "enabled": true,
-    "failIfUnavailable": true
   }
 }

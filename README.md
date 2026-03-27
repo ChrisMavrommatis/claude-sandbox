@@ -84,6 +84,7 @@ Each check is identified by a code (`I-001` for installation, `S-001` for securi
 ```powershell
 .\Change-Profile.ps1              # pick a bashrc style (default or pretty)
 .\Change-Workflow.ps1             # pick a workflow profile
+.\Change-Policy.ps1               # pick a managed policy (default or restrictive)
 .\Update-ClaudeSandbox.ps1        # update packages and re-deploy profiles
 .\Uninstall-ClaudeSandbox.ps1     # remove the distro (keeps Claude persistence data)
 ```

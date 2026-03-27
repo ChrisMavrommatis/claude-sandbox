@@ -30,6 +30,7 @@ From an elevated PowerShell prompt on the Windows host:
 .\Verify-ClaudeSandbox.ps1        # Verify installation and security posture
 .\Change-Profile.ps1              # Switch bashrc profile interactively
 .\Change-Workflow.ps1             # Switch workflow profile interactively
+.\Change-Policy.ps1               # Switch managed policy interactively
 .\Update-ClaudeSandbox.ps1        # Update packages and re-deploy profiles
 .\Uninstall-ClaudeSandbox.ps1     # Remove the distro
 ```
@@ -70,23 +71,7 @@ The project uses a **"thin script, fat module"** pattern:
 #Requires -Version 5.1
 $ErrorActionPreference = 'Stop'
 Import-Module "$PSScriptRoot\ClaudeSandbox\ClaudeSandbox.psd1" -Force
-. "$PSScriptRoot\sandbox-config.ps1"
-
-$Config = @{
-    DistroName                 = $DistroName
-    DistroImage                = $DistroImage
-    Username                   = $Username
-    UserPassword               = $UserPassword
-    ProjectsPath               = $ProjectsPath
-    ClaudePersistenceDir       = $ClaudePersistenceDir
-    ContainerRuntime           = $ContainerRuntime
-    Packages                   = $Packages
-    InstallDir                 = $InstallDir
-    TerminalProfileName        = $TerminalProfileName
-    TerminalProfileIcon        = $TerminalProfileIcon
-    TerminalProfileColorScheme = $TerminalProfileColorScheme
-    TerminalProfileBackground  = $TerminalProfileBackground
-}
+. "$PSScriptRoot\sandbox-config.ps1"   # provides $Config
 
 <Public-Function> -Config $Config
 ```
@@ -100,6 +85,7 @@ $Config = @{
 | `$DistroName`                   | `Restart-Sandbox`     | Low-level utility, only needs one value                                |
 | `$Config + $ProfileName`        | `Set-SandboxProfile`  | Config for distro/user, explicit name for the profile to deploy        |
 | `$Config + $WorkflowName`       | `Set-SandboxWorkflow` | Config for distro/user/paths, explicit name for the workflow to deploy |
+| `$Config + $PolicyName`         | `Set-SandboxPolicy`   | Config for distro, explicit name for the policy folder to deploy       |
 
 ### Token Replacement Pattern
 
@@ -109,10 +95,11 @@ Workflow scripts use `__TOKEN__` placeholders (e.g., `__PROJECTS_DRVFS__`) that 
 
 Claude Code's `.claude` directory is bind-mounted from a Windows folder (`$ClaudePersistenceDir`) via `/etc/fstab` so Claude state, settings, and memory survive distro rebuilds. A symlink `~/.claude.json` -> `~/.claude/.claude.json` ensures Claude's top-level config file is also persisted.
 
-### Profile & Workflow System
+### Profile, Workflow & Policy System
 
 - **Profile** (`ClaudeSandbox/Assets/profiles/*.sh`) - replaces `~/.bashrc` entirely. The default profile sources `~/.bashrc.d/workflow.sh` at the end.
 - **Workflow** (`ClaudeSandbox/Assets/workflows/*.sh`) - deployed to `~/.bashrc.d/workflow.sh`. Contains project management functions and the welcome banner.
+- **Policy** (`ClaudeSandbox/Assets/policies/<name>/`) - each named subfolder contains `settings.json` (Claude Code managed permissions) and `policy.md` (deployed as `/etc/claude-code/CLAUDE.md`). Use `Change-Policy.ps1` to switch between policies.
 
 ## Key Files
 
@@ -124,9 +111,10 @@ Claude Code's `.claude` directory is bind-mounted from a Windows folder (`$Claud
 | `Uninstall-ClaudeSandbox.ps1`  | `Uninstall-Sandbox`                    |
 | `Change-Profile.ps1`           | `Set-SandboxProfile`                   |
 | `Change-Workflow.ps1`          | `Set-SandboxWorkflow`                  |
+| `Change-Policy.ps1`            | `Set-SandboxPolicy`                    |
 | `Verify-ClaudeSandbox.ps1`     | `Test-Sandbox`                         |
 | `Update-ClaudeSandbox.ps1`     | `Update-Sandbox`                       |
-| `sandbox-config.ps1`           | User-editable config (not a wrapper)   |
+| `sandbox-config.ps1`           | Defines `$Config`; dot-sourced by all wrappers |
 
 **Module - Public functions** (`ClaudeSandbox/Public/`):
 
@@ -140,8 +128,9 @@ Claude Code's `.claude` directory is bind-mounted from a Windows folder (`$Claud
 | `Remove-TerminalProfile` | Removes Windows Terminal profile entry                                                                                                          |
 | `Invoke-InSandbox`       | Executes a bash command inside the WSL distro (default user: root)                                                                              |
 | `Restart-Sandbox`        | Terminates distro and waits for restart                                                                                                         |
-| `Test-Sandbox`           | Verifies installation and security posture                                                                                                      |
-| `Update-Sandbox`         | Updates packages and re-deploys profile/workflow, then verifies                                                                                 |
+| `Set-SandboxPolicy`       | Deploys a named managed policy (settings.json + policy.md) from `Assets/policies/<name>/`                                                      |
+| `Test-Sandbox`            | Verifies installation and security posture                                                                                                     |
+| `Update-Sandbox`          | Updates packages and re-deploys profile/workflow, then verifies                                                                                 |
 
 **Module - Private helpers** (`ClaudeSandbox/Private/`):
 
@@ -159,14 +148,16 @@ Claude Code's `.claude` directory is bind-mounted from a Windows folder (`$Claud
 
 **Module - Assets** (`ClaudeSandbox/Assets/`):
 
-| File                    | Role                                                                                                        |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `wsl.conf`              | WSL2 config template with `__DistroName__` and `__Username__` tokens                                        |
-| `profiles/default.sh`   | Standard Debian bashrc that sources `~/.bashrc.d/workflow.sh`                                               |
-| `profiles/pretty.sh`    | Enhanced bashrc with colored prompt and archive extractor utility                                           |
-| `workflows/default.sh`  | Bash functions (`index-projects`, `mount-project`, `switch-project`) with tab completion and welcome banner |
-| `managed-settings.json` | Claude Code managed settings deployed to `/etc/claude-code/managed-settings.json`                           |
-| `managed-policy.md`     | Claude Code managed policy deployed to `/etc/claude-code/CLAUDE.md`                                         |
+| File                                  | Role                                                                                                        |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `wsl.conf`                            | WSL2 config template with `__DistroName__` and `__Username__` tokens                                        |
+| `profiles/default.sh`                 | Standard Debian bashrc that sources `~/.bashrc.d/workflow.sh`                                               |
+| `profiles/pretty.sh`                  | Enhanced bashrc with colored prompt and archive extractor utility                                           |
+| `workflows/default.sh`                | Bash functions (`index-projects`, `mount-project`, `switch-project`) with tab completion and welcome banner |
+| `policies/default/settings.json`      | Default managed permissions deployed to `/etc/claude-code/managed-settings.json`                            |
+| `policies/default/policy.md`          | Default managed policy deployed to `/etc/claude-code/CLAUDE.md`                                             |
+| `policies/restrictive/settings.json`  | Stricter permissions: adds deny rules for git push, chmod 777, pip/npm/apt install                          |
+| `policies/restrictive/policy.md`      | Stricter policy text matching the restrictive settings                                                       |
 
 **Documentation:**
 
@@ -193,6 +184,7 @@ Every installer step and security setting that `Test-Sandbox` verifies is annota
 - `workflows/default.sh` - project name validation annotation
 - `Set-SandboxProfile.ps1` - profile deployment annotation
 - `Set-SandboxWorkflow.ps1` - workflow deployment annotation
+- `Set-SandboxPolicy.ps1` - managed settings and policy deployment annotations
 
 When adding new checks: assign the next code in sequence, add the check to `Test-Sandbox`, and annotate the source line that produces the checked state.
 
@@ -238,17 +230,17 @@ When adding new checks: assign the next code in sequence, add the check to `Test
 
 ## Configuration
 
-Edit `sandbox-config.ps1` to set defaults. The install wizard prompts for each value interactively using these as defaults. Key variables:
+Edit `sandbox-config.ps1` to configure the sandbox. It defines a `$Config` hashtable that all wrapper scripts consume directly -- adding a new parameter only requires changing this one file. The install wizard prompts for key values interactively, using the config as defaults. Key config keys:
 
-- `$ProjectsPath` - Windows root for projects (mounted into Linux on demand)
-- `$ClaudePersistenceDir` - Windows folder where `.claude` state is persisted across distro rebuilds
-- `$UserPassword` - Default sandbox user password. The install wizard prompts securely and overrides this value. Used as-is only in `-NonInteractive` mode.
-- `$ContainerRuntime` - `podman` or `docker`
-- `$Packages` - Extra apt packages to install in the distro
-- `$Username` / `$DistroName` / `$InstallDir` - Distro identity and install location
-- `$TerminalProfileName` - Display name shown in the Windows Terminal dropdown
-- `$TerminalProfileIcon` - Optional icon path for the Windows Terminal profile
-- `$TerminalProfileColorScheme` - Optional color scheme name (must exist in Windows Terminal settings)
-- `$TerminalProfileBackground` - Optional hex background color for the Windows Terminal profile
-- `$GpuEnabled` - Enable GPU passthrough (default: `$false`)
-- `$SessionTimeout` - Idle shell timeout in seconds (default: `0` = disabled). Uses `readonly TMOUT` via `/etc/profile.d/`.
+- `ProjectsPath` - Windows root for projects (mounted into Linux on demand)
+- `ClaudePersistenceDir` - Windows folder where `.claude` state is persisted across distro rebuilds
+- `UserPassword` - Default sandbox user password. The install wizard prompts securely and overrides this value. Used as-is only in `-NonInteractive` mode.
+- `ContainerRuntime` - `podman` or `docker`
+- `Packages` - Extra apt packages to install in the distro
+- `Username` / `DistroName` / `InstallDir` - Distro identity and install location. Update `InstallDir` if you change `DistroName`.
+- `TerminalProfileName` - Display name shown in the Windows Terminal dropdown
+- `TerminalProfileIcon` - Optional icon path for the Windows Terminal profile
+- `TerminalProfileColorScheme` - Optional color scheme name (must exist in Windows Terminal settings)
+- `TerminalProfileBackground` - Optional hex background color for the Windows Terminal profile
+- `GpuEnabled` - Enable GPU passthrough (default: `$false`)
+- `SessionTimeout` - Idle shell timeout in seconds (default: `0` = disabled). Uses `readonly TMOUT` via `/etc/profile.d/`.
