@@ -18,7 +18,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 From an elevated PowerShell prompt on the Windows host:
 
 ```powershell
-.\Install-ClaudeSandbox.ps1
+.\Install-ClaudeSandbox.ps1                  # Interactive wizard (defaults from config)
+.\Install-ClaudeSandbox.ps1 -NonInteractive  # Skip wizard, use config as-is (for CI)
 .\Verify-ClaudeSandbox.ps1        # Verify installation and security posture
 .\Change-Profile.ps1              # Switch bashrc profile interactively
 .\Change-Workflow.ps1             # Switch workflow profile interactively
@@ -54,6 +55,7 @@ The project uses a **"thin script, fat module"** pattern:
 - Private helpers (`ClaudeSandbox/Private/*.ps1`) handle formatting, assertions, and file operations
 - All public functions accept a `[hashtable]$Config` parameter built from `sandbox-config.ps1` variables
 - `Invoke-InSandbox` and `Restart-Sandbox` use explicit parameters (low-level utilities called many times)
+- **Interactive UI (wizards, pickers) belongs in thin wrappers, not in module functions.** Module functions are pure automation - they accept a fully populated `$Config` and execute without prompting. This keeps the module importable and scriptable for CI or custom automation. The wrapper is responsible for gathering user input before calling the module function.
 
 **Thin wrapper template** (all root scripts follow this pattern):
 
@@ -123,8 +125,8 @@ Claude Code's `.claude` directory is bind-mounted from a Windows folder (`$Claud
 
 | Function                 | Role                                                                                                       |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `Install-Sandbox`        | Full install orchestration: WSL setup, container, packages, user, persistence, profile, workflow, terminal |
-| `Uninstall-Sandbox`      | Terminates and unregisters distro, removes terminal profile; never touches `$ClaudePersistenceDir`         |
+| `Install-Sandbox`        | Full install orchestration: WSL setup, container, packages, user, persistence, profile, workflow, terminal. Requires fully populated `$Config`. |
+| `Uninstall-Sandbox`      | Terminates and unregisters distro, removes terminal profile; never touches `$ClaudePersistenceDir`. `-RemoveInstallDir` to delete disk files. |
 | `Set-SandboxProfile`     | Deploys a named bashrc profile (e.g., `default.sh`, `pretty.sh`)                                           |
 | `Set-SandboxWorkflow`    | Deploys a named workflow with token replacement (e.g., `default.sh`)                                       |
 | `Add-TerminalProfile`    | Adds/updates Windows Terminal profile for the distro                                                       |
@@ -161,6 +163,8 @@ Claude Code's `.claude` directory is bind-mounted from a Windows folder (`$Claud
 
 | File                                | Role                                                                                |
 | ----------------------------------- | ----------------------------------------------------------------------------------- |
+| `docs/about.md`                      | Plain-English explanation of what the sandbox is and who it is for                   |
+| `docs/threat-model.md`              | Full STRIDE threat model with accepted risks and planned mitigations                |
 | `docs/setup-commands.md`            | Step-by-step manual setup guide (no installer)                                      |
 | `docs/safe-usage.md`                | User-facing guide to using Claude safely inside the sandbox                         |
 | `plans/security-posture.md`         | Security coverage summary with gap list                                             |
@@ -219,10 +223,11 @@ When adding new checks: assign the next code in sequence, add the check to `Test
 
 ## Configuration
 
-Edit `sandbox-config.ps1` before running the installer. Key variables:
+Edit `sandbox-config.ps1` to set defaults. The install wizard prompts for each value interactively using these as defaults. Key variables:
 
 - `$ProjectsPath` - Windows root for projects (mounted into Linux on demand)
 - `$ClaudePersistenceDir` - Windows folder where `.claude` state is persisted across distro rebuilds
+- `$UserPassword` - Leave blank for interactive installs (wizard prompts securely). Set only for `-NonInteractive` / CI runs. Never commit a real value to git.
 - `$ContainerRuntime` - `podman` or `docker`
 - `$Packages` - Extra apt packages to install in the distro
 - `$Username` / `$DistroName` / `$InstallDir` - Distro identity and install location

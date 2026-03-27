@@ -7,6 +7,13 @@ function Install-Sandbox {
 
     Assert-Administrator
 
+    # Validate required config values
+    if ([string]::IsNullOrEmpty($Config.UserPassword)) {
+        Write-Host "  ERROR: UserPassword is required. Set it in `$Config before calling Install-Sandbox." -ForegroundColor Red
+        return
+    }
+
+    # -- Unpack config into local variables -------------------------------------------
     $DistroName           = $Config.DistroName
     $DistroImage          = $Config.DistroImage
     $Username             = $Config.Username
@@ -16,19 +23,6 @@ function Install-Sandbox {
     $ContainerRuntime     = $Config.ContainerRuntime
     $Packages             = $Config.Packages
     $InstallDir           = $Config.InstallDir
-
-    # Warn if password is still the default [S-013]
-    if ($UserPassword -eq "changeme") {
-        Write-Host ""
-        Write-Host "  WARNING: Password is still set to 'changeme' in sandbox-config.ps1" -ForegroundColor Yellow
-        Write-Host "  Change it before using the sandbox in any shared environment." -ForegroundColor Yellow
-        Write-Host ""
-        $proceed = Read-Host "  Continue with default password? [y/N]"
-        if ($proceed -notmatch '^[Yy]') {
-            Write-Host "  Aborted. Edit sandbox-config.ps1 and re-run." -ForegroundColor Yellow
-            exit 0
-        }
-    }
 
     # -- Preparation ----------------------------------------------------------------------
     $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "claude-sandbox-install"
@@ -104,6 +98,10 @@ function Install-Sandbox {
     $escapedPassword = $UserPassword -replace "'", "'\'''" -replace '\$', '\$' -replace '`', '\`' -replace '"', '\"'
     Write-FileToDistro $DistroName "/tmp/.pw" "$Username`:$escapedPassword"
     Invoke-InSandbox $DistroName "chpasswd < /tmp/.pw && rm -f /tmp/.pw"
+    # Clear password from memory after use
+    $UserPassword = $null
+    $escapedPassword = $null
+    [GC]::Collect()
     Write-Ok "User '$Username' created and added to sudo group"
 
     # Deploy wsl.conf [I-005, S-001, S-002, S-003, S-004, S-005, S-006]

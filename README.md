@@ -18,12 +18,11 @@ A one-command setup that creates an isolated Linux environment on Windows (via W
 
 ## Quick Start
 
-**1. Edit the config** - open `sandbox-config.ps1` and set your paths:
+**1. Review the config** - open `sandbox-config.ps1` and check the default paths:
 
 ```powershell
 $ProjectsPath         = "D:\Projects"  # where your Windows projects live
 $ClaudePersistenceDir = "D:\.claude"   # where Claude state is persisted
-$UserPassword         = "yourpassword"
 $ContainerRuntime     = "podman"       # or "docker"
 ```
 
@@ -31,6 +30,14 @@ $ContainerRuntime     = "podman"       # or "docker"
 
 ```powershell
 .\Install-ClaudeSandbox.ps1
+```
+
+The installer walks you through an interactive wizard - every setting has a default from the config file, so you can press Enter to accept or type a new value. The password is always prompted securely (never stored in the config).
+
+For CI or automated installs, set `$UserPassword` in the config and use:
+
+```powershell
+.\Install-ClaudeSandbox.ps1 -NonInteractive
 ```
 
 That's it. The installer creates the WSL2 distro, installs packages, configures Claude Code, and wires up project mounting and persistence.
@@ -97,6 +104,10 @@ To manage the Terminal profile independently, use `Add-TerminalProfile` or `Remo
 ## How it works
 
 The installer exports a `debian:bookworm-slim` container image as a WSL2 tarball, imports it as a distro, then configures it from scratch. Windows project folders are mounted into Linux on demand using WSL's `drvfs` driver - no copying, no syncing. Claude's `.claude` directory is permanently bind-mounted from a Windows folder via `/etc/fstab` so your login, memory, and settings survive even if you nuke and rebuild the distro.
+
+## Security
+
+See [docs/about.md](docs/about.md) for what the sandbox does and does not protect against. See [docs/threat-model.md](docs/threat-model.md) for the full threat model. See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## Troubleshooting
 

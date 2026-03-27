@@ -12,7 +12,9 @@
 
 # -- Paths & credentials --------------------------------------------------------
 $ProjectsPath           = "D:\Projects"   # Root folder containing your Windows projects
-$UserPassword           = "changeme"      # Avoid single-quote characters in the password
+# Leave blank to be prompted during install (recommended).
+# Set a value here only for non-interactive / CI runs. Avoid single-quote characters.
+$UserPassword           = ""
 $ClaudePersistenceDir   = "D:\.claude"    # Windows folder to be mounted as /.claude in the sandbox for persistent storage
 
 # -- Container runtime --------------------------------------------------------- 

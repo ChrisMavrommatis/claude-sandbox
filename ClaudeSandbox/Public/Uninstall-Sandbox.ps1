@@ -2,7 +2,9 @@ function Uninstall-Sandbox {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [hashtable]$Config
+        [hashtable]$Config,
+
+        [switch]$RemoveInstallDir
     )
 
     Assert-Administrator
@@ -18,13 +20,6 @@ function Uninstall-Sandbox {
 
     Write-Host "  Claude persistence data ($ClaudePersistenceDir) will NOT be removed." -ForegroundColor DarkGray
     Write-Host ""
-
-    # -- Confirm --------------------------------------------------------------------------
-    $confirm = Read-Host "  Remove '$DistroName'? [y/N]"
-    if ($confirm -notmatch '^[Yy]') {
-        Write-Host "  Aborted." -ForegroundColor Yellow
-        return
-    }
 
     # -- Terminate distro -----------------------------------------------------------------
     Write-Step "Terminating distro..."
@@ -44,14 +39,11 @@ function Uninstall-Sandbox {
 
     # -- Optionally remove install directory -----------------------------------------------
     Write-Step "Install directory: $InstallDir"
-    if (Test-Path $InstallDir) {
-        $removeDir = Read-Host "  Remove install directory from disk? [y/N]"
-        if ($removeDir -match '^[Yy]') {
-            Remove-Item $InstallDir -Recurse -Force -ErrorAction Stop
-            Write-Ok "Install directory removed"
-        } else {
-            Write-Info "Install directory kept"
-        }
+    if ($RemoveInstallDir -and (Test-Path $InstallDir)) {
+        Remove-Item $InstallDir -Recurse -Force -ErrorAction Stop
+        Write-Ok "Install directory removed"
+    } elseif (Test-Path $InstallDir) {
+        Write-Info "Install directory kept (pass -RemoveInstallDir to remove)"
     } else {
         Write-Info "Install directory not found - skipping"
     }
