@@ -15,5 +15,20 @@
       "Bash(apt-get install *)",
       "Bash(apt install *)"
     ]
+  },
+  "sandbox": {
+    "network": {
+      "allowedDomains": [
+        "deb.debian.org",
+        "security.debian.org",
+        "*.anthropic.com",
+        "api.anthropic.com",
+        "github.com",
+        "*.github.com",
+        "registry.npmjs.org",
+        "pypi.org",
+        "files.pythonhosted.org"
+      ]
+    }
   }
 }

@@ -10,11 +10,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `README.md`: update when commands, scripts, or user-facing behaviour changes
   - `CLAUDE.md`: update when architecture, functions, or coding conventions change
   - `docs/security-posture.md` and `plans/security-posture-details.md`: update ONLY when explicitly implementing or resolving a security control or gap. Do NOT modify these files as a side effect of unrelated changes (adding a config variable, fixing a bug, updating a profile, etc.). If a change has security implications but you were not asked to update the posture files, flag it in your response instead.
+  - **When implementing a security control**, all five of these must update together:
+    1. `Test-Sandbox.ps1` -- add or update the check
+    2. `CLAUDE.md` -- add check code to the table
+    3. `docs/security-posture.md` -- update Status and Check columns
+    4. `docs/threat-model.md` -- update STRIDE row Status; remove from Section 8 if now implemented
+    5. `SECURITY.md` / `docs/about.md` -- update Known Limitations if relevant
   - Documentation should never describe something that doesn't exist or omit something that does.
 - **Markdown table formatting**: Align separator rows to match column widths using dashes (e.g., `| ---------------------- |` not `| -- |` or `|--|`). Pad cell content with spaces to match the widest entry in each column so tables are readable in plain text.
 - **Markdown heading levels (MD001)**: Heading levels must increment by one at a time. Never jump from `##` directly to `####` -- add a `###` level in between, or use `###` for the items directly.
 - **Blank lines around headings (MD022)**: Every heading must have one blank line above it and one blank line below it. No exceptions -- this applies to all heading levels including `####`.
 - **Blank lines around lists (MD032)**: Every bullet or numbered list must have one blank line before the first item and one blank line after the last item.
+- **Write-FileToDistro staging rule**: Never write directly to `/etc/` or any root-owned path via `Write-FileToDistro`. Always stage to `/tmp/` first, then move and set permissions as root via `Invoke-InSandbox`:
+  ```
+  Write-FileToDistro $DistroName "/tmp/filename" $content
+  Invoke-InSandbox $DistroName "mv /tmp/filename /target/path && chmod NNN /target/path"
+  ```
+- **managed-settings.json must be valid JSON**: No trailing commas. After editing, verify with: `Get-Content ClaudeSandbox\Assets\managed-settings.json | ConvertFrom-Json`
 
 ## What This Project Is
 
@@ -187,6 +199,8 @@ Every installer step and security setting that `Test-Sandbox` verifies is annota
 - `Set-SandboxPolicy.ps1` - managed settings and policy deployment annotations
 
 When adding new checks: assign the next code in sequence, add the check to `Test-Sandbox`, and annotate the source line that produces the checked state.
+
+**Never claim a control is implemented without both:** a `# [X-NNN]` annotation on the source line that produces the verified state, AND a corresponding check in `Test-Sandbox.ps1`. Documentation that describes a control as "Supported" without both of these does not count as implemented.
 
 **Check code reference:**
 

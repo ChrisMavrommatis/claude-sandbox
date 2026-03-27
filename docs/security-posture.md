@@ -75,10 +75,10 @@
 | ------------------------------- | ------------------------------------------------------------------------------- | ------ | ------------- | -------------------- | ----- |
 | Permission modes                | `plan` / `acceptEdits` / `--dangerously-skip-permissions` per session           | HIGH   | Supported     | User                 | -     |
 | Claude `/sandbox` mode          | Filesystem and network isolation for bash commands via bubblewrap               | HIGH   | Supported     | Sandbox              | S-009 |
-| Sandbox network proxy           | Domain-level network filtering for sandboxed bash commands via `allowedDomains` | HIGH   | Not Supported | Sandbox (when impl.) | -     |
+| Sandbox network proxy           | Domain-level network filtering for sandboxed bash commands via `allowedDomains` | HIGH   | Supported     | Sandbox (user-enabled) | I-013 |
 | Managed settings file           | Organization-wide permissions via `/etc/claude-code/managed-settings.json`      | MEDIUM | Supported     | Sandbox              | I-013 |
 | Managed policy CLAUDE.md        | Organization-wide rules deployed to `/etc/claude-code/CLAUDE.md` in sandbox     | MEDIUM | Supported     | Sandbox              | I-014 |
-| Sandbox fail-if-unavailable     | `sandbox.failIfUnavailable` makes sandbox a hard requirement                    | MEDIUM | Supported     | Sandbox              | I-013 |
+| Sandbox fail-if-unavailable     | `sandbox.failIfUnavailable` makes sandbox a hard requirement                    | MEDIUM | Not Supported | -                    | -     |
 | Disable bypass permissions mode | Prevent users from using `bypassPermissions` via managed settings               | MEDIUM | Not Supported | Sandbox (when impl.) | -     |
 | Managed-only permission rules   | `allowManagedPermissionRulesOnly` prevents user/project allow rules             | MEDIUM | Not Supported | Sandbox (when impl.) | -     |
 | PreToolUse hooks                | Runtime hooks that can block specific tool calls before execution               | MEDIUM | Not Supported | Sandbox (when impl.) | -     |

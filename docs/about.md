@@ -50,7 +50,7 @@ Full controls matrix with check codes: [docs/security-posture.md](security-postu
 ### Known Limitations
 
 - No outbound network filtering at the host level (WSL2 NAT architecture constraint; see [ADR-002](decisions/ADR-002-no-iptables.md) when available)
-- Sandbox network proxy for bash commands not yet configured - bash has unrestricted outbound access until deployed
+- Sandbox network proxy restricts bash commands to an approved domain list when sandbox mode is active; Claude's built-in tools (WebFetch) remain unfiltered. Sandbox mode is user-enabled (run `/sandbox`) -- not enforced by default
 - Claude's built-in tools (WebFetch) are not filtered by any sandbox control
 - Claude Code installed via curl-pipe-bash with no checksum verification
 - Container image not pinned to digest by default - floating tag pulls latest

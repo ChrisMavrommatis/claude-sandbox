@@ -65,7 +65,7 @@ graph TB
     ProjectMount --> Distro
     PersistMount --> Distro
     BuiltIn -->|"unrestricted - not filtered"| Internet
-    Bash -->|"proxy-filtered when sandbox network configured (planned)"| Internet
+    Bash -->|"allowedDomains-filtered when sandbox active (user-enabled)"| Internet
     Distro -.->|"DISABLED: interop, automount, Windows PATH"| WinHost
 ```
 
@@ -76,7 +76,7 @@ graph TB
 | Windows PATH excluded       | wsl.conf (S-002)        | Sandbox-enforced               |
 | Automount disabled          | wsl.conf (S-003)        | Sandbox-enforced               |
 | Project mount RO/RW         | User flag at mount time | User-controlled - not enforced |
-| Outbound network (bash)     | Sandbox network proxy   | Planned - not yet deployed     |
+| Outbound network (bash)     | Sandbox network proxy   | Configured via allowedDomains; applies when user enables /sandbox |
 | Outbound network (WebFetch) | No control exists       | Unmitigated - accepted gap     |
 | sudo escalation             | Password prompt (S-007) | Sandbox-enforced               |
 
@@ -240,21 +240,21 @@ Out of scope: external attacker via network (no inbound services), physical acce
 
 #### Info Disclosure - Sandboxed bash exfiltrates data over the network
 
-- **Control:** Sandbox network proxy with `allowedDomains` -- planned, not yet deployed
-- **Status:** Planned
-- **Residual Risk:** Until the network proxy is deployed, bash commands have unrestricted outbound network access. A malicious package or script can send data to any external host. This is the highest-priority unimplemented control.
+- **Control:** Sandbox network proxy with `allowedDomains` -- configured in managed-settings.json; applies when sandbox mode is active
+- **Status:** Partial
+- **Residual Risk:** Sandbox mode is user-enabled (via `/sandbox`), not enforced by default. When sandbox is off, bash commands have unrestricted outbound access. When sandbox is on, traffic is filtered to the configured domain list. The user decides whether to enable sandbox mode per-session.
 
 #### Info Disclosure - Compromised package beacons home during install
 
-- **Control:** Same as above -- sandbox network proxy (planned)
-- **Status:** Planned
-- **Residual Risk:** Same as above. Any `npm install`, `pip install`, or `apt-get install` can trigger network callbacks. Deny rules block curl/wget (S-021) but not direct socket access from package scripts.
+- **Control:** Same as above -- sandbox network proxy via `allowedDomains`
+- **Status:** Partial
+- **Residual Risk:** Same as above. Protection applies only when sandbox mode is active. Any `npm install`, `pip install`, or `apt-get install` run outside sandbox can trigger network callbacks. Deny rules block curl/wget (S-021) but not direct socket access from package scripts.
 
 #### Tampering - Bash command escapes bubblewrap sandbox
 
-- **Control:** Bubblewrap user namespaces (S-009); `sandbox.failIfUnavailable = true` (I-013) prevents Claude from running bash if bubblewrap is unavailable
+- **Control:** Bubblewrap user namespaces (S-009)
 - **Status:** Partial
-- **Residual Risk:** Bubblewrap security depends on the kernel version and correct namespace support. A kernel vulnerability or misconfiguration could allow escape. The `failIfUnavailable` flag ensures the sandbox never silently degrades to unsandboxed execution.
+- **Residual Risk:** Bubblewrap security depends on the kernel version and correct namespace support. A kernel vulnerability or misconfiguration could allow escape. `sandbox.failIfUnavailable` is not enforced -- Claude can run bash without sandbox if bubblewrap is unavailable or not enabled.
 
 #### Denial of Service - Bash process exhausts resources
 
@@ -272,8 +272,8 @@ Out of scope: external attacker via network (no inbound services), physical acce
 
 ### Outbound network not filtered at host level
 
-- **Justification:** WSL2 NAT architecture makes host-level firewall rules unreliable (rules cannot track dynamic WSL2 IP ranges). Sandbox network proxy (planned) will mitigate bash command traffic specifically.
-- **What Would Change This:** WSL2 gains reliable firewall integration, or the user deploys a host-side proxy and configures Claude's allowedDomains.
+- **Justification:** WSL2 NAT architecture makes host-level firewall rules unreliable (rules cannot track dynamic WSL2 IP ranges). Sandbox network proxy is now configured via `allowedDomains` and filters bash traffic when sandbox mode is active, but sandbox mode is user-enabled -- not enforced by default.
+- **What Would Change This:** Enforce sandbox mode by default (re-add `sandbox.enabled: true` to managed-settings.json), accepting that `/sandbox` toggle will no longer work. Or WSL2 gains reliable host-level firewall integration.
 
 ### Claude can read credentials in mounted RW project directories
 
@@ -316,7 +316,6 @@ Controls not yet implemented but actively tracked in [security-posture-details.m
 
 | Control                                | Threat It Closes                                         | Priority |
 | -------------------------------------- | -------------------------------------------------------- | -------- |
-| Sandbox network proxy (allowedDomains) | Unrestricted outbound bash traffic                       | HIGH     |
 | PreToolUse hooks                       | Runtime blocking of credential reads, dangerous patterns | MEDIUM   |
 | ConfigChange hooks                     | Unaudited settings changes mid-session                   | LOW      |
 
