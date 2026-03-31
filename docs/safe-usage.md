@@ -4,7 +4,7 @@ How to use Claude Code effectively inside the distro.
 
 ## Mount control
 
-Projects are not mounted automatically — you choose what Claude can access:
+Projects are not mounted automatically - you choose what Claude can access:
 
 ```bash
 mount-project my-app --ro    # read-only: reviews, explanations, Q&A
@@ -23,7 +23,7 @@ Control how much Claude acts autonomously per session:
 ```bash
 claude --permission-mode plan         # read and plan only, no changes
 claude --permission-mode acceptEdits  # edit files freely, ask before running commands
-claude --dangerously-skip-permissions # no prompts (safe here — distro limits reach)
+claude --dangerously-skip-permissions # no prompts (safe here - distro limits reach)
 ```
 
 Start with `plan` for unfamiliar projects or whenever you are unsure of scope.
@@ -38,7 +38,7 @@ Enable additional isolation for bash commands:
 
 This uses bubblewrap to restrict what commands can reach, and filters outbound network requests by domain (subject to the active policy tier).
 Combined with WSL2 isolation, this provides defense-in-depth against prompt injection and malicious dependencies.
-Claude sandbox mode is opt-in — it is not active by default.
+Claude sandbox mode is opt-in - it is not active by default.
 
 ## Worktree isolation
 

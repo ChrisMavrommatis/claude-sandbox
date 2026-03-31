@@ -59,7 +59,7 @@ sudoers.d perms) and are unrelated to secret detection. A dedicated secret scann
 mirrored to a remote repository, a pre-commit or CI-integrated secret scanner should
 replace the current pattern-match approach.
 
-**ADR:** None yet — raise ADR-010 if adopted.
+**ADR:** None yet - raise ADR-010 if adopted.
 
 ---
 
@@ -92,4 +92,4 @@ Items not yet actionable but worth tracking as Claude Code evolves.
 |-------|-------------------------------------------------------------------------------------|
 | W-001 | Claude Code changelog for `allowManagedPermissionRulesOnly` local enforcement notes |
 | W-002 | Claude Code changelog for new managed settings that affect permission scope         |
-| W-003 | Debian bookworm-slim CVE cadence — inform re-pinning frequency recommendation       |
+| W-003 | Debian bookworm-slim CVE cadence - inform re-pinning frequency recommendation       |

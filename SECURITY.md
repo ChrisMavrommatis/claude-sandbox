@@ -1,4 +1,4 @@
-# Claude Sandbox — Security Overview
+# Claude Sandbox - Security Overview
 
 Claude Sandbox is a pre-configured WSL2 Debian environment that isolates Claude Code from the Windows host.
 It is designed to reduce the blast radius if Claude acts outside its intended scope - particularly for professional work, unattended sessions, and projects containing credentials.

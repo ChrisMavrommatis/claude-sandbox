@@ -280,7 +280,7 @@ Use these names verbatim everywhere.
 | `I-010`   | Filesystem           | .claude.json symlink exists                                                    |
 | `I-011`   | Filesystem           | Projects directory exists                                                      |
 | `I-012`   | Application Layer    | Claude Code installed (warn-only)                                              |
-| `I-013`   | Application Layer    | Managed settings deployed (allowManagedPermissionRulesOnly unverified — see ADR-009) |
+| `I-013`   | Application Layer    | Managed settings deployed (allowManagedPermissionRulesOnly unverified - see ADR-009) |
 | `I-014`   | Application Layer    | Managed policy deployed                                                        |
 | `I-015`   | Application Layer    | PreToolUse credential guard hook deployed                                      |
 | `I-015.N` | Application Layer    | One sub-check per fixture in Tests/Hooks/ (blocked-* expects exit 2, allowed-* expects exit 0) |
