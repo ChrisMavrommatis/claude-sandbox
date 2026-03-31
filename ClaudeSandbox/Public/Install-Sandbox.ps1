@@ -176,6 +176,15 @@ function Install-Sandbox {
     Write-Info "Deploying managed settings and policy..."
     Set-SandboxPolicy -Config $Config -PolicyName "default"
 
+    # Deploy PreToolUse credential guard hook [I-015]
+    Write-Info "Deploying PreToolUse credential guard hook..."
+    $hookPath = Get-AssetPath "hooks/pretooluse-credential-guard.sh"
+    $hookContent = Get-Content $hookPath -Raw
+    Invoke-InSandbox $DistroName "mkdir -p /etc/claude-code/hooks"
+    Write-FileToDistro $DistroName "/tmp/pretooluse-credential-guard.sh" $hookContent
+    Invoke-InSandbox $DistroName "mv /tmp/pretooluse-credential-guard.sh /etc/claude-code/hooks/pretooluse-credential-guard.sh && chmod 755 /etc/claude-code/hooks/pretooluse-credential-guard.sh"
+    Write-Ok "Credential guard hook deployed"
+
     Write-Ok "Step 3 Complete: Sandbox environment configured"
 
     # -- Step 4: Default profile and workflow [I-006, I-007] --------------------------------

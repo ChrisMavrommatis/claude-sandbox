@@ -1,32 +1,49 @@
-# ADR-002: No iptables
+# ADR-002: No iptables for outbound filtering
 
-**Date:** 2026-03-27
-**Status:** Accepted
+- **Date:** 2026-03-27
+- **Status:** Accepted
 
-## Context
+## Problem
 
-A key goal is preventing Claude or code it runs from exfiltrating data over the network. The obvious Linux approach is iptables rules inside the WSL2 distro.
+Claude and code it runs have unrestricted outbound network access by default. The obvious
+Linux mitigation is iptables rules inside the WSL2 distro - but WSL2 makes this
+unreliable in practice.
+
+## Why iptables doesn't work on WSL2
+
+| Mode                              | Problem                                                                                 |
+|-----------------------------------|-----------------------------------------------------------------------------------------|
+| NAT mode (default)                | Virtual adapter recreated on every restart - rules don't survive reliably               |
+| Mirrored networking (Win 11 22H2+) | Distro shares host interfaces directly - iptables rules affect the Windows host         |
+
+Both modes make automated iptables rules either fragile or unsafe. UFW inherits the same
+problems as it is a frontend for iptables.
 
 ## Decision
 
-Do not rely on iptables inside WSL2 for outbound filtering. Instead:
+**Do not use iptables inside the distro for outbound filtering.**
 
-- Rely on Claude's sandbox network proxy (allowedDomains) for bash commands (planned - not yet deployed)
-- Accept that Claude's built-in tools (WebFetch) are unfiltered
-- Document host-level options (Windows Firewall, host-side proxy) in safe-usage.md but do not automate them from inside the sandbox
+Use Claude's sandbox network proxy (`allowedDomains`) for bash command filtering, and
+accept that Claude's built-in tools (WebFetch) are unfiltered. Host-level controls are
+the user's responsibility.
 
-## Consequences
+## What this means in practice
 
-- No outbound network filtering is active today for bash commands (gap tracked in security-posture.md as HIGH / Not Supported)
-- When sandbox network proxy is deployed, bash commands will be domain-filtered
-- WebFetch remains unfiltered - this is an accepted residual risk
+- Bash commands are domain-filtered via `allowedDomains` when Claude sandbox mode is
+  active (I-013) - this is the primary mitigation
+- WebFetch bypasses all sandbox controls - unfiltered, accepted gap
+- Windows Firewall rules are the correct layer for host-level egress control; guidance
+  is documented in `docs/safe-usage.md` but not automated from inside the distro
+- The outbound filtering gap is tracked in security-posture.md (Host Isolation, No)
 
-## Security Implications
+## Accepted risk
 
-iptables inside WSL2 has two fundamental problems:
+Bash commands are unfiltered when Claude sandbox mode is not active. WebFetch is always
+unfiltered. A compromised dependency or tool can reach arbitrary internet hosts unless
+the user configures host-level Windows Firewall rules independently.
 
-1. In NAT mode (default): the virtual network adapter is recreated on every WSL restart. iptables rules can be restored via a systemd service, but they bind to an adapter that may not exist in the same state after restart, making them fragile in practice.
+## Controls reference
 
-2. In mirrored networking mode (Windows 11 22H2+): WSL2 shares the host's physical network interfaces directly. iptables rules inside the distro affect host-level interfaces, making automation dangerous and behaviour unpredictable. Multiple open issues in the WSL2 GitHub repository document interface disappearance and instability in mirrored mode.
-
-The maintenance burden and fragility outweigh the security benefit for a local developer sandbox. Host-level Windows Firewall rules are the correct layer for network egress control, but their management is outside the scope of this project and must be handled by the user.
+Sandbox network proxy: I-013.
+Host Isolation gap: `docs/security-posture.md` - Outbound network filtering row.
+Windows Firewall guidance: `docs/safe-usage.md`.

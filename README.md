@@ -1,6 +1,12 @@
 # Claude Sandbox
 
-A one-command setup that creates an isolated Linux environment on Windows (via WSL2) purpose-built for [Claude Code](https://claude.ai/code). Your Windows projects stay on Windows - the sandbox mounts them on demand so Claude can work on them without touching the rest of your system.
+![Security Checks](https://img.shields.io/badge/security_checks-37_passing-brightgreen)
+![Verified](https://img.shields.io/badge/posture-verified-blue)
+![WSL2](https://img.shields.io/badge/platform-WSL2-0078D4?logo=windows)
+![PowerShell](https://img.shields.io/badge/shell-PowerShell-5391FE?logo=powershell)
+
+A one-command setup that creates an isolated Linux environment on Windows (via WSL2) purpose-built for [Claude Code](https://claude.ai/code).
+Your Windows projects stay on Windows - the sandbox mounts them on demand so Claude can work on them without touching the rest of your system.
 
 ## What you get
 
@@ -32,9 +38,10 @@ $ContainerRuntime     = "podman"       # or "docker"
 .\Install-ClaudeSandbox.ps1
 ```
 
-The installer walks you through an interactive wizard - every setting has a default from the config file, so you can press Enter to accept or type a new value. The password is always prompted securely (never stored in the config).
+The installer walks you through an interactive wizard - every setting has a default from the config file, so you can press Enter to accept or type a new value.
+The password is always prompted securely (never stored in the config).
 
-For CI or automated installs, set `$UserPassword` in the config and use:
+For unattended installs, set `$UserPassword` in the config and use:
 
 ```powershell
 .\Install-ClaudeSandbox.ps1 -NonInteractive
@@ -84,8 +91,8 @@ Each check is identified by a code (`I-001` for installation, `S-001` for securi
 ```powershell
 .\Change-Profile.ps1              # pick a bashrc style (default or pretty)
 .\Change-Workflow.ps1             # pick a workflow profile
-.\Change-Policy.ps1               # pick a managed policy (default or restrictive)
-.\Update-ClaudeSandbox.ps1        # update packages and re-deploy profiles
+.\Change-Policy.ps1               # pick a managed policy (default, restrictive, or maximum)
+.\Verify-ClaudeSandbox.ps1        # verify installation and security posture
 .\Uninstall-ClaudeSandbox.ps1     # remove the distro (keeps Claude persistence data)
 ```
 
@@ -100,15 +107,11 @@ $TerminalProfileColorScheme = "One Half Dark"
 $TerminalProfileBackground  = "#1a0a22"
 ```
 
-To manage the Terminal profile independently, use `Add-TerminalProfile` or `Remove-TerminalProfile` from the `ClaudeSandbox` module.
-
-## How it works
-
-The installer exports a `debian:bookworm-slim` container image as a WSL2 tarball, imports it as a distro, then configures it from scratch. Windows project folders are mounted into Linux on demand using WSL's `drvfs` driver - no copying, no syncing. Claude's `.claude` directory is permanently bind-mounted from a Windows folder via `/etc/fstab` so your login, memory, and settings survive even if you nuke and rebuild the distro.
-
 ## Security
 
-See [docs/about.md](docs/about.md) for what the sandbox does and does not protect against. See [docs/threat-model.md](docs/threat-model.md) for the full threat model. See [SECURITY.md](SECURITY.md) for vulnerability reporting.
+- See [docs/about.md](docs/about.md) for what the sandbox does and does not protect against.
+- See [docs/threat-model.md](docs/threat-model.md) for the full threat model.
+- See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## Troubleshooting
 

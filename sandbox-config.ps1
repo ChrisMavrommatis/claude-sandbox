@@ -5,7 +5,6 @@
 # - Install-ClaudeSandbox.ps1
 # - Uninstall-ClaudeSandbox.ps1
 # - Verify-ClaudeSandbox.ps1
-# - Update-ClaudeSandbox.ps1
 # - Change-Profile.ps1
 # - Change-Workflow.ps1
 # - Change-Policy.ps1
@@ -33,12 +32,12 @@ $Config = @{
 
     # -- Distro settings (unlikely to need changing) --------------------------------
     Username    = "dev"
-    DistroName  = "claude-sandbox-test"
+    DistroName  = "claude-sandbox"
     DistroImage = "debian:bookworm-slim"
-    InstallDir  = "D:\WSL\claude-sandbox-test"  # Update this if you change DistroName
+    InstallDir  = "D:\WSL\claude-sandbox"  # Update this if you change DistroName
 
     # -- Terminal profile settings --------------------------------------------------
-    TerminalProfileName        = "Claude Sandbox Test"  # Name shown in Windows Terminal dropdown
+    TerminalProfileName        = "Claude Sandbox"  # Name shown in Windows Terminal dropdown
     TerminalProfileIcon        = "ms-appx:///ProfileIcons/{9acb9455-ca41-5af7-950f-6bca1bc9722f}.png"  # Optional: path to .png icon
     TerminalProfileColorScheme = "One Half Dark"        # Optional: must exist in your Windows Terminal settings.json
     TerminalProfileBackground  = "#1a0a22"              # Optional: hex background color

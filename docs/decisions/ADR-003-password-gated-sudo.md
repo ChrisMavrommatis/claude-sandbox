@@ -1,24 +1,41 @@
 # ADR-003: Password-gated sudo
 
-**Date:** 2026-03-27
-**Status:** Accepted
+- **Date:** 2026-03-27
+- **Status:** Accepted
 
-## Context
+## Problem
 
-This is a local developer sandbox. The user owns the machine and knows the sudo password. The question is: why enforce password-gated sudo instead of NOPASSWD, which would be more convenient?
+Claude can execute bash commands autonomously, including in unattended sessions. Without
+a hard control on privilege escalation, a prompt injection attack or hallucination could
+cause Claude to run a sudo command without any human involvement.
 
 ## Decision
 
-Require a password for all sudo operations. No NOPASSWD entries in sudoers.
+**Require a password for all sudo operations. No NOPASSWD entries.**
 
-## Consequences
+## What this means in practice
 
-- Slight friction when the user legitimately needs to run a sudo command
-- Claude cannot escalate to root without a human typing a password
-- Verified by check S-007; Test-Sandbox will fail if NOPASSWD is found
+- Claude cannot escalate to root without a human physically typing the password
+- Prompt injection via a project file or WebFetch cannot autonomously trigger sudo
+- Slight friction for the user when a legitimate sudo command is needed
+- Verified by S-007 - Test-Sandbox fails if any NOPASSWD entry is found
 
-## Security Implications
+## Accepted risk
 
-The password requirement is not for the user - it is a control against Claude. Prompt injection is a realistic attack vector: malicious content in a project file or a web page Claude fetches could instruct Claude to run a sudo command. Without a password requirement, Claude could execute that instruction autonomously, particularly in an unattended session.
+A user who pre-caches their sudo credential (via `sudo -v`) within the timeout window
+effectively removes this control for the duration of that session. This is a conscious
+user choice, not a sandbox failure.
 
-The design principle here is that security controls must not depend on Claude behaving correctly. Claude may be prompt-injected, hallucinating, or misunderstanding its scope. The sudo password is a hard control that requires a human to be present and consenting before any privilege escalation occurs.
+## Why this matters more than it seems
+
+The password is not there to protect against the user - it is there to protect against
+Claude. The design principle is that security controls must not depend on Claude
+behaving correctly. Claude may be prompt-injected, hallucinating, or misunderstanding
+its scope. The sudo password ensures a human must be present and consenting before any
+privilege escalation occurs.
+
+## Controls reference
+
+Sudo password enforcement: S-007.
+Sudo brute-force limiting: not implemented - see
+`docs/security-posture.md` (User & Privilege, Sudo brute-force limiting row).

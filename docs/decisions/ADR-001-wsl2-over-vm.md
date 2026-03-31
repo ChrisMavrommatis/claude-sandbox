@@ -1,23 +1,47 @@
 # ADR-001: WSL2 over full VM
 
-**Date:** 2026-03-27
-**Status:** Accepted
+- **Date:** 2026-03-27
+- **Status:** Accepted
 
-## Context
+## Problem
 
-Claude Sandbox needs an isolated Linux environment on a Windows developer machine. The options considered were WSL2 and a full hypervisor VM (Hyper-V, VirtualBox, or VMware). The environment must support Claude Code's bubblewrap sandbox mode, mount Windows project folders on demand, and start quickly enough for daily use.
+Claude Sandbox needs an isolated Linux environment on a Windows developer machine that
+starts fast, mounts Windows project folders on demand, and supports Claude Code's
+bubblewrap sandbox mode - without becoming a maintenance burden.
+
+## Options considered
+
+| Option    | Isolation | Startup | Mount friction | Maintenance |
+|-----------|-----------|---------|----------------|-------------|
+| WSL2      | Medium    | Seconds | None (drvfs)   | Low         |
+| Full VM   | High      | Minutes | Shared folders | High        |
 
 ## Decision
 
-Use WSL2. The Hyper-V-backed VM boundary provides meaningful isolation for the primary threat (containment of Claude's actions), while drvfs mounts, fast startup, and native Windows Terminal integration make it practical for daily development.
+**Use WSL2.**
 
-## Consequences
+The Hyper-V-backed boundary is sufficient for the primary threat - Claude acting outside
+its intended scope. The usability difference is significant enough for daily dev work
+that a full VM is not justified.
 
-- Install is a one-command PowerShell script; no VM image management
-- Projects mount instantly via drvfs with no syncing
-- WSL2 starts in seconds vs minutes for a full VM
-- Windows interop, automount, and Windows PATH must be explicitly disabled (done - S-001, S-002, S-003) because they are enabled by default and would break the isolation boundary
+## What this means in practice
 
-## Security Implications
+- Install is a single PowerShell script; no VM image management
+- Projects mount instantly via drvfs with no syncing overhead
+- WSL2 starts in seconds; native Windows Terminal integration works out of the box
+- Windows interop, automount, and Windows PATH are disabled explicitly (S-001, S-002,
+  S-003) - they are enabled by default and would break the isolation boundary
 
-WSL2 is not as isolated as a full VM. A full hypervisor VM with no shared clipboard, no shared filesystem, and no guest additions would provide stronger containment. The trade-off was made in favour of usability for daily developer use. A kernel-level exploit in WSL2 could theoretically break containment to the Windows host. This risk is accepted - the primary threat model is Claude acting outside its intended scope, not a kernel exploit. If the threat model changes (e.g. running untrusted third-party code at scale), a full VM should be reconsidered.
+## Accepted risk
+
+WSL2 is not a full VM. A kernel-level exploit could theoretically break containment to
+the Windows host. This is accepted because the threat model is Claude making mistakes or
+acting outside scope - not a kernel exploit.
+
+If the threat model changes - for example, running untrusted third-party code at scale -
+a full VM should be reconsidered.
+
+## Controls reference
+
+Host Isolation checks in `Test-Sandbox.ps1`: S-001, S-002, S-003, S-004.
+Full controls matrix: [docs/security-posture.md](../security-posture.md).

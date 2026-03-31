@@ -1,0 +1,11 @@
+# WSL2 resource limits template
+# Copy to %USERPROFILE%\.wslconfig to apply.
+# WARNING: This file affects ALL WSL2 distros on this machine, not just
+# Claude Sandbox. Review carefully before deploying.
+# Uncomment and adjust values as needed.
+
+[wsl2]
+# memory=4GB          # Max memory for all WSL2 distros combined
+# processors=2        # Max CPU cores available to WSL2
+# swap=2GB            # Swap file size (0 to disable)
+# swapFile=C:\\Temp\\wsl-swap.vhdx   # Custom swap file location

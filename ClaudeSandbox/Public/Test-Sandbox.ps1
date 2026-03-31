@@ -7,10 +7,10 @@ function Test-Sandbox {
 
     Assert-Administrator
 
-    $DistroName           = $Config.DistroName
-    $Username             = $Config.Username
+    $DistroName = $Config.DistroName
+    $Username = $Config.Username
     $ClaudePersistenceDir = $Config.ClaudePersistenceDir
-    $Packages             = $Config.Packages
+    $Packages = $Config.Packages
 
     $script:passCount = 0
     $script:failCount = 0
@@ -60,7 +60,8 @@ function Test-Sandbox {
     $registered = $distroList | Where-Object { $_ -replace "`0", "" | Where-Object { $_.Trim() -eq $DistroName } }
     if ($registered) {
         Write-CheckResult "I-001" "PASS" "Distro registered"
-    } else {
+    }
+    else {
         Write-CheckResult "I-001" "FAIL" "Distro not registered"
         Write-Host ""
         Write-Host "  Cannot continue - distro '$DistroName' not found." -ForegroundColor Red
@@ -70,7 +71,8 @@ function Test-Sandbox {
     # I-002: User exists
     if (Test-InSandbox "id $Username") {
         Write-CheckResult "I-002" "PASS" "User '$Username' exists"
-    } else {
+    }
+    else {
         Write-CheckResult "I-002" "FAIL" "User '$Username' not found"
     }
 
@@ -78,7 +80,8 @@ function Test-Sandbox {
     $groups = Get-FromSandbox "groups $Username"
     if ($groups -match '\bsudo\b') {
         Write-CheckResult "I-003" "PASS" "User in sudo group"
-    } else {
+    }
+    else {
         Write-CheckResult "I-003" "FAIL" "User not in sudo group"
     }
 
@@ -89,7 +92,8 @@ function Test-Sandbox {
         $code = "I-004.$pkgIndex"
         if (Test-InSandbox "dpkg -s $pkg") {
             Write-CheckResult $code "PASS" "Package '$pkg' installed"
-        } else {
+        }
+        else {
             Write-CheckResult $code "FAIL" "Package '$pkg' not installed"
         }
     }
@@ -97,28 +101,32 @@ function Test-Sandbox {
     # I-005: wsl.conf exists
     if (Test-InSandbox "test -f /etc/wsl.conf") {
         Write-CheckResult "I-005" "PASS" "wsl.conf exists"
-    } else {
+    }
+    else {
         Write-CheckResult "I-005" "FAIL" "wsl.conf missing"
     }
 
     # I-006: .bashrc deployed
     if (Test-InSandbox "test -f /home/$Username/.bashrc" $Username) {
         Write-CheckResult "I-006" "PASS" ".bashrc deployed"
-    } else {
+    }
+    else {
         Write-CheckResult "I-006" "FAIL" ".bashrc missing"
     }
 
     # I-007: Workflow deployed
     if (Test-InSandbox "test -f /home/$Username/.bashrc.d/workflow.sh" $Username) {
         Write-CheckResult "I-007" "PASS" "Workflow deployed"
-    } else {
+    }
+    else {
         Write-CheckResult "I-007" "FAIL" "Workflow missing"
     }
 
     # I-008: .claude persistence dir exists
     if (Test-InSandbox "test -d /home/$Username/.claude" $Username) {
         Write-CheckResult "I-008" "PASS" "Persistence directory exists"
-    } else {
+    }
+    else {
         Write-CheckResult "I-008" "FAIL" "Persistence directory missing"
     }
 
@@ -127,43 +135,85 @@ function Test-Sandbox {
     $escapedPath = [regex]::Escape($ClaudePersistenceDir)
     if ($fstab -match $escapedPath) {
         Write-CheckResult "I-009" "PASS" "Persistence mount in fstab"
-    } else {
+    }
+    else {
         Write-CheckResult "I-009" "FAIL" "Persistence mount not in fstab"
     }
 
     # I-010: .claude.json symlink exists
     if (Test-InSandbox "test -L /home/$Username/.claude.json" $Username) {
         Write-CheckResult "I-010" "PASS" ".claude.json symlink exists"
-    } else {
+    }
+    else {
         Write-CheckResult "I-010" "FAIL" ".claude.json symlink missing"
     }
 
     # I-011: Projects dir exists
     if (Test-InSandbox "test -d /home/$Username/projects" $Username) {
         Write-CheckResult "I-011" "PASS" "Projects directory exists"
-    } else {
+    }
+    else {
         Write-CheckResult "I-011" "FAIL" "Projects directory missing"
     }
 
     # I-012: Claude Code installed (warn-only)
     if (Test-InSandbox "test -f /home/$Username/.local/bin/claude" $Username) {
         Write-CheckResult "I-012" "PASS" "Claude Code installed"
-    } else {
+    }
+    else {
         Write-CheckResult "I-012" "WARN" "Claude Code not installed"
     }
 
     # I-013: Managed settings deployed
     if (Test-InSandbox "test -f /etc/claude-code/managed-settings.json") {
         Write-CheckResult "I-013" "PASS" "Managed settings deployed"
-    } else {
+    }
+    else {
         Write-CheckResult "I-013" "FAIL" "Managed settings missing"
     }
 
     # I-014: Managed policy deployed
     if (Test-InSandbox "test -f /etc/claude-code/CLAUDE.md") {
         Write-CheckResult "I-014" "PASS" "Managed policy deployed"
-    } else {
+    }
+    else {
         Write-CheckResult "I-014" "FAIL" "Managed policy missing"
+    }
+
+    # I-015: PreToolUse credential guard hook deployed
+    if (-not (Test-InSandbox "test -f /etc/claude-code/hooks/pretooluse-credential-guard.sh")) {
+        Write-CheckResult "I-015" "FAIL" "Credential guard hook missing (/etc/claude-code/hooks/pretooluse-credential-guard.sh)"
+    }
+    else {
+        Write-CheckResult "I-015" "PASS" "Credential guard hook deployed"
+
+        $hook            = "/etc/claude-code/hooks/pretooluse-credential-guard.sh"
+        $hookTestDir     = "/tmp/hook-tests"
+        $hookFixturesDir = Join-Path $PSScriptRoot "..\Tests\Hooks"
+        Invoke-InSandbox $DistroName "mkdir -p $hookTestDir"
+        Invoke-InSandbox $DistroName "chmod 777 $hookTestDir"
+
+        # Deploy run-hook.sh so shell redirections are resolved inside the distro
+        Write-FileToDistro $DistroName "$hookTestDir/run-hook.sh" (Get-Content (Join-Path $hookFixturesDir "run-hook.sh") -Raw)
+        Invoke-InSandbox $DistroName "chmod +x $hookTestDir/run-hook.sh"
+
+        # I-015.N: one sub-check per fixture -- results reported immediately
+        $subIndex = 1
+        foreach ($fixture in Get-ChildItem $hookFixturesDir -Filter "*.json" | Sort-Object Name) {
+            Write-FileToDistro $DistroName "$hookTestDir/$($fixture.Name)" (Get-Content $fixture.FullName -Raw)
+            $got = (Get-FromSandbox "$hookTestDir/run-hook.sh $hook $hookTestDir/$($fixture.Name)").Trim()
+            if      ($fixture.Name -like "blocked-*") { $want = "2" }
+            elseif  ($fixture.Name -like "allowed-*") { $want = "0" }
+            else    { $subIndex++; continue }
+            if ($got -eq $want) {
+                Write-CheckResult "I-015.$subIndex" "PASS" $fixture.BaseName
+            }
+            else {
+                Write-CheckResult "I-015.$subIndex" "FAIL" "$($fixture.BaseName) (exit $got, want $want)"
+            }
+            $subIndex++
+        }
+        Invoke-InSandbox $DistroName "rm -rf $hookTestDir"
     }
 
     # =====================================================================================
@@ -185,14 +235,16 @@ function Test-Sandbox {
     }
     if ($interopOk) {
         Write-CheckResult "S-001" "PASS" "Windows interop disabled"
-    } else {
+    }
+    else {
         Write-CheckResult "S-001" "FAIL" "Windows interop not disabled"
     }
 
     # S-002: Windows PATH excluded
     if ($wslConfText -match 'appendWindowsPath\s*=\s*false') {
         Write-CheckResult "S-002" "PASS" "Windows PATH excluded"
-    } else {
+    }
+    else {
         Write-CheckResult "S-002" "FAIL" "Windows PATH not excluded"
     }
 
@@ -206,28 +258,32 @@ function Test-Sandbox {
     }
     if ($automountOk) {
         Write-CheckResult "S-003" "PASS" "Automount disabled"
-    } else {
+    }
+    else {
         Write-CheckResult "S-003" "FAIL" "Automount not disabled"
     }
 
     # S-004: protectBinfmt enabled
     if ($wslConfText -match 'protectBinfmt\s*=\s*true') {
         Write-CheckResult "S-004" "PASS" "protectBinfmt enabled"
-    } else {
+    }
+    else {
         Write-CheckResult "S-004" "FAIL" "protectBinfmt not enabled"
     }
 
     # S-005: systemd enabled
     if ($wslConfText -match 'systemd\s*=\s*true') {
         Write-CheckResult "S-005" "PASS" "systemd enabled"
-    } else {
+    }
+    else {
         Write-CheckResult "S-005" "FAIL" "systemd not enabled"
     }
 
     # S-006: Default user is non-root
     if ($wslConfText -match "default\s*=\s*$Username") {
         Write-CheckResult "S-006" "PASS" "Default user is '$Username'"
-    } else {
+    }
+    else {
         Write-CheckResult "S-006" "FAIL" "Default user is not '$Username'"
     }
 
@@ -235,14 +291,16 @@ function Test-Sandbox {
     $sudoersCheck = Get-FromSandbox "grep -r 'NOPASSWD' /etc/sudoers /etc/sudoers.d/ 2>/dev/null"
     if (-not $sudoersCheck) {
         Write-CheckResult "S-007" "PASS" "Sudo password-gated"
-    } else {
+    }
+    else {
         Write-CheckResult "S-007" "FAIL" "NOPASSWD found in sudoers"
     }
 
     # S-008: Sudo password feedback
     if (Test-InSandbox "test -f /etc/sudoers.d/pwfeedback") {
         Write-CheckResult "S-008" "PASS" "Sudo password feedback enabled"
-    } else {
+    }
+    else {
         Write-CheckResult "S-008" "WARN" "Sudo password feedback not configured"
     }
 
@@ -250,28 +308,32 @@ function Test-Sandbox {
     $userns = Get-FromSandbox "cat /proc/sys/kernel/unprivileged_userns_clone 2>/dev/null"
     if ((-not $userns) -or ($userns.Trim() -eq "1")) {
         Write-CheckResult "S-009" "PASS" "User namespaces enabled"
-    } else {
+    }
+    else {
         Write-CheckResult "S-009" "FAIL" "User namespaces disabled"
     }
 
     # S-010: fstab mount has correct umask
     if ($fstab -match 'umask=022') {
         Write-CheckResult "S-010" "PASS" "fstab umask=022"
-    } else {
+    }
+    else {
         Write-CheckResult "S-010" "FAIL" "fstab umask not 022"
     }
 
     # S-011: fstab mount has metadata flag
     if ($fstab -match 'metadata') {
         Write-CheckResult "S-011" "PASS" "fstab metadata flag set"
-    } else {
+    }
+    else {
         Write-CheckResult "S-011" "FAIL" "fstab metadata flag missing"
     }
 
     # S-012: Project name validation rejects path traversal
     if (Test-InSandbox "source /home/$Username/.bashrc.d/workflow.sh && mount-project '../../etc' 2>/dev/null" $Username) {
         Write-CheckResult "S-012" "FAIL" "Path traversal not blocked"
-    } else {
+    }
+    else {
         Write-CheckResult "S-012" "PASS" "Project name validation active"
     }
 
@@ -292,7 +354,8 @@ except Exception:
 "@
     if ($pwCheck -and $pwCheck.Trim() -eq "match") {
         Write-CheckResult "S-013" "WARN" "Password is still 'changeme' -- change it"
-    } else {
+    }
+    else {
         Write-CheckResult "S-013" "PASS" "Password changed from default"
     }
 
@@ -300,7 +363,8 @@ except Exception:
     $gpuExpected = if ($Config.GpuEnabled) { "true" } else { "false" }
     if ($wslConfText -match "enabled\s*=\s*$gpuExpected" -and $wslConfText -match '\[gpu\]') {
         Write-CheckResult "S-014" "PASS" "GPU setting matches config ($gpuExpected)"
-    } else {
+    }
+    else {
         Write-CheckResult "S-014" "WARN" "GPU setting in wsl.conf does not match config (expected $gpuExpected)"
     }
 
@@ -308,7 +372,8 @@ except Exception:
     $wslConfPerms = Get-FromSandbox "stat -c '%U %a' /etc/wsl.conf 2>/dev/null"
     if ($wslConfPerms -and $wslConfPerms.Trim() -match '^root \d[0-5][0-5]$') {
         Write-CheckResult "S-015" "PASS" "wsl.conf permissions secure"
-    } else {
+    }
+    else {
         Write-CheckResult "S-015" "FAIL" "wsl.conf has wrong owner or is world-writable"
     }
 
@@ -317,10 +382,12 @@ except Exception:
         $sudoPerms = Get-FromSandbox "stat -c '%U %a' /etc/sudoers.d/pwfeedback 2>/dev/null"
         if ($sudoPerms -and $sudoPerms.Trim() -match '^root 440$') {
             Write-CheckResult "S-016" "PASS" "pwfeedback permissions correct (0440)"
-        } else {
+        }
+        else {
             Write-CheckResult "S-016" "FAIL" "pwfeedback has wrong permissions (expected root 440)"
         }
-    } else {
+    }
+    else {
         Write-CheckResult "S-016" "WARN" "pwfeedback not present, skipping permission check"
     }
 
@@ -328,7 +395,8 @@ except Exception:
     $umaskCheck = Get-FromSandbox "grep -q 'umask 022' /home/$Username/.bashrc 2>/dev/null && echo yes"
     if ($umaskCheck -and $umaskCheck.Trim() -eq "yes") {
         Write-CheckResult "S-017" "PASS" "umask 022 set in profile"
-    } else {
+    }
+    else {
         Write-CheckResult "S-017" "FAIL" "umask 022 not found in profile"
     }
 
@@ -336,14 +404,16 @@ except Exception:
     $histCheck = Get-FromSandbox "grep -q 'HISTTIMEFORMAT' /home/$Username/.bashrc 2>/dev/null && echo yes"
     if ($histCheck -and $histCheck.Trim() -eq "yes") {
         Write-CheckResult "S-018" "PASS" "History timestamps enabled"
-    } else {
+    }
+    else {
         Write-CheckResult "S-018" "FAIL" "HISTTIMEFORMAT not set in profile"
     }
 
     # S-019: fstab-only mounts (mountFsTab = true in wsl.conf)
     if ($wslConfText -match 'mountFsTab\s*=\s*true') {
         Write-CheckResult "S-019" "PASS" "fstab-only mounts enabled"
-    } else {
+    }
+    else {
         Write-CheckResult "S-019" "FAIL" "mountFsTab not set to true"
     }
 
@@ -353,22 +423,34 @@ except Exception:
         $tmoutCheck = Get-FromSandbox "grep -q 'readonly TMOUT' /etc/profile.d/session-timeout.sh 2>/dev/null && echo yes"
         if ($tmoutCheck -and $tmoutCheck.Trim() -eq "yes") {
             Write-CheckResult "S-020" "PASS" "Session timeout configured (${sessionTimeout}s)"
-        } else {
+        }
+        else {
             Write-CheckResult "S-020" "FAIL" "Session timeout not properly configured"
         }
-    } else {
+    }
+    else {
         Write-CheckResult "S-020" "PASS" "Session timeout disabled (SessionTimeout = 0)"
     }
 
  
-    # S-021: Managed settings contain curl/wget deny rules
+    # S-021: Managed settings contain catastrophic command deny rules (present in all policy tiers)
     $managedSettings = Get-FromSandbox "cat /etc/claude-code/managed-settings.json 2>/dev/null"
-    $hasCurlDeny = $managedSettings -match 'Bash\(curl \*\)'
-    $hasWgetDeny = $managedSettings -match 'Bash\(wget \*\)'
-    if ($hasCurlDeny -and $hasWgetDeny) {
-        Write-CheckResult "S-021" "PASS" "Managed settings block curl and wget"
-    } else {
-        Write-CheckResult "S-021" "FAIL" "Managed settings missing curl/wget deny rules"
+    $hasRmDeny = $managedSettings -match 'Bash\(rm -rf /\*\)'
+    $hasDdDeny = $managedSettings -match 'Bash\(dd \*\)'
+    $hasMkfsDeny = $managedSettings -match 'Bash\(mkfs \*\)'
+    if ($hasRmDeny -and $hasDdDeny -and $hasMkfsDeny) {
+        Write-CheckResult "S-021" "PASS" "Managed settings deny catastrophic commands (rm -rf /*, dd, mkfs)"
+    }
+    else {
+        Write-CheckResult "S-021" "FAIL" "Managed settings missing catastrophic command deny rules (rm -rf /*, dd, mkfs)"
+    }
+
+    # S-022: Image digest pinning (warn-only) [S-022]
+    if ($Config.DistroImage -match '@sha256:') {
+        Write-CheckResult "S-022" "PASS" "Distro image is digest-pinned"
+    }
+    else {
+        Write-CheckResult "S-022" "WARN" "Distro image not digest-pinned (no @sha256: in DistroImage)"
     }
 
     # =====================================================================================
@@ -389,7 +471,8 @@ except Exception:
 
     if ($script:failCount -eq 0) {
         Write-Host "  All checks passed: $summary" -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Host "  Result: $summary" -ForegroundColor Red
     }
     Write-Host "  $divider" -ForegroundColor DarkGray

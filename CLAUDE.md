@@ -2,62 +2,91 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Style Rules
+## Overview
 
-- Never use em dashes. Use regular hyphens (`-`) or double hyphens (`--`) instead.
-- **Verification check codes**: Every piece of code that creates or configures something verified by `Test-Sandbox` must have a `# [X-NNN]` comment on or near the responsible line. This links the implementation to its verification check. When adding new installer steps or security settings, add a corresponding check to `Test-Sandbox` with the next available code, and annotate the source. When modifying existing checked code, preserve the code annotation.
-- **Keep documentation in sync**:
-  - `README.md`: update when commands, scripts, or user-facing behaviour changes
-  - `CLAUDE.md`: update when architecture, functions, or coding conventions change
-  - `docs/security-posture.md` and `plans/security-posture-details.md`: update ONLY when explicitly implementing or resolving a security control or gap. Do NOT modify these files as a side effect of unrelated changes (adding a config variable, fixing a bug, updating a profile, etc.). If a change has security implications but you were not asked to update the posture files, flag it in your response instead.
-  - **When implementing a security control**, all five of these must update together:
-    1. `Test-Sandbox.ps1` -- add or update the check
-    2. `CLAUDE.md` -- add check code to the table
-    3. `docs/security-posture.md` -- update Status and Check columns
-    4. `docs/threat-model.md` -- update STRIDE row Status; remove from Section 8 if now implemented
-    5. `SECURITY.md` / `docs/about.md` -- update Known Limitations if relevant
-  - Documentation should never describe something that doesn't exist or omit something that does.
-- **Markdown table formatting**: Align separator rows to match column widths using dashes (e.g., `| ---------------------- |` not `| -- |` or `|--|`). Pad cell content with spaces to match the widest entry in each column so tables are readable in plain text.
-- **Markdown heading levels (MD001)**: Heading levels must increment by one at a time. Never jump from `##` directly to `####` -- add a `###` level in between, or use `###` for the items directly.
-- **Blank lines around headings (MD022)**: Every heading must have one blank line above it and one blank line below it. No exceptions -- this applies to all heading levels including `####`.
-- **Blank lines around lists (MD032)**: Every bullet or numbered list must have one blank line before the first item and one blank line after the last item.
-- **Write-FileToDistro staging rule**: Never write directly to `/etc/` or any root-owned path via `Write-FileToDistro`. Always stage to `/tmp/` first, then move and set permissions as root via `Invoke-InSandbox`:
-  ```
+**Claude Sandbox** automates the creation of an isolated WSL2 Debian environment
+pre-configured for Claude Code. It exports a container image as a WSL2 distro and
+wires up on-demand project mounting via drvfs.
+
+**Design principles (non-negotiable):**
+
+- **Defense-in-depth**: multiple independent layers so no single misconfiguration exposes everything
+- **Least privilege**: non-root user, password-gated sudo, explicit RO/RW mount modes per project
+- **Honest gap documentation**: limitations listed openly, never hidden
+- **Verifiable posture**: every security claim links to a check code (S-xxx, I-xxx) in Test-Sandbox.ps1
+- **Minimal blast radius**: Windows interop, automount, and PATH disabled - Claude cannot reach the host filesystem except through explicit mounts
+
+---
+
+## Rules
+
+Coding, documentation, and markdown conventions that apply to all work in this repository.
+
+### Coding
+
+- Never use em dashes. Use regular hyphens (`-`) instead.
+- **Verification check codes**: Every piece of code that creates or configures something
+  verified by `Test-Sandbox` must have a `# [X-NNN]` comment on or near the responsible
+  line. When adding new installer steps or security settings, add a corresponding check
+  to `Test-Sandbox` with the next available code and annotate the source. When modifying
+  existing checked code, preserve the annotation.
+- **Write-FileToDistro staging**: Never write directly to `/etc/` or any root-owned path
+  via `Write-FileToDistro`. Always stage to `/tmp/` first:
+
+  ```powershell
   Write-FileToDistro $DistroName "/tmp/filename" $content
   Invoke-InSandbox $DistroName "mv /tmp/filename /target/path && chmod NNN /target/path"
   ```
-- **managed-settings.json must be valid JSON**: No trailing commas. After editing, verify with: `Get-Content ClaudeSandbox\Assets\managed-settings.json | ConvertFrom-Json`
 
-## What This Project Is
+### Documentation
 
-**Claude Sandbox** automates the creation of an isolated WSL2 (Windows Subsystem for Linux 2) Debian environment pre-configured for Claude Code development. It bridges Windows and Linux by exporting a container image as a WSL2 distro and wiring up on-demand project mounting via drvfs.
+- **Keep documentation in sync**:
+  - `README.md` - update when commands, scripts, or user-facing behaviour changes.
+  - `CLAUDE.md` - update when architecture, functions, or coding conventions change.
+  - `docs/security-posture.md` - operational reference (what controls exist, are they
+    working?). Update ONLY when implementing or resolving a security control.
+  - `docs/threat-model.md` - threat reasoning (what we defend against and why). Update
+    ONLY when the threat landscape, trust boundaries, accepted risks, or STRIDE analysis
+    changes.
+  - `docs/security-research.md` - update ONLY when explicitly implementing or resolving
+    a security control or gap.
+  - Do NOT modify any of these files as a side effect of unrelated changes. If a change
+    has security implications but you were not asked to update them, flag it instead.
+  - Documentation should never describe something that doesn't exist or omit something
+    that does.
+- **When implementing a security control**, all five of these must update together:
+  1. `Test-Sandbox.ps1` - add or update the check
+  2. `CLAUDE.md` - add check code to the table
+  3. `docs/security-posture.md` - update Status and Check columns
+  4. `docs/threat-model.md` - update STRIDE row Status; remove from Section 8 if now
+     implemented
+  5. `SECURITY.md` / `docs/about.md` - update Known Limitations if relevant
+- **security-posture.md integrity**: When reviewing or editing `docs/security-posture.md`:
+  - "Supported" status requires a check code in the Check column
+  - "Not Supported" status must NOT have a check code
+  - "Partial" status may have a check code if a partial check exists
+- **Never claim a control is implemented** without both: a `# [X-NNN]` annotation on
+  the source line that produces the verified state, AND a corresponding check in
+  `Test-Sandbox.ps1`. A "Supported" label without both does not count as implemented.
+- **Security domain assignment**: Every new check code (I-xxx or S-xxx) must map to one
+  of the eight canonical security domains. If a proposed check does not fit any existing
+  domain, stop - do not create it and do not add a new domain without an explicit
+  decision to expand the canonical set.
 
-## Commands
+### Markdown
 
-From an elevated PowerShell prompt on the Windows host:
+- **Table formatting**: Align separator rows to match column widths using dashes. Pad
+  cell content with spaces to match the widest entry in each column so tables are
+  readable in plain text.
+- **Heading levels (MD001)**: Increment by one at a time. Never jump from `##` to `####`.
+- **Blank lines around headings (MD022)**: One blank line above and below every heading.
+- **Blank lines around lists (MD032)**: One blank line before and after every list.
 
-```powershell
-.\Install-ClaudeSandbox.ps1                  # Interactive wizard (defaults from config)
-.\Install-ClaudeSandbox.ps1 -NonInteractive  # Skip wizard, use config as-is (for CI)
-.\Verify-ClaudeSandbox.ps1        # Verify installation and security posture
-.\Change-Profile.ps1              # Switch bashrc profile interactively
-.\Change-Workflow.ps1             # Switch workflow profile interactively
-.\Change-Policy.ps1               # Switch managed policy interactively
-.\Update-ClaudeSandbox.ps1        # Update packages and re-deploy profiles
-.\Uninstall-ClaudeSandbox.ps1     # Remove the distro
-```
-
-Inside the WSL sandbox:
-
-```bash
-index-projects                    # Scan Windows Projects folder and build index
-switch-project                    # fzf picker - mount + cd into a project (RW)
-switch-project <name>             # Mount + cd into a named project (RW)
-mount-project <name> [--ro|--rw]  # Mount without changing directory
-unmount-project <name>            # Safely unmount
-```
+---
 
 ## Architecture
+
+How the project is structured - the layers it runs across, the module pattern, and the key mechanisms that wire everything together.
 
 ### Layers
 
@@ -75,7 +104,9 @@ The project uses a **"thin script, fat module"** pattern:
 - Private helpers (`ClaudeSandbox/Private/*.ps1`) handle formatting, assertions, and file operations
 - All public functions accept a `[hashtable]$Config` parameter built from `sandbox-config.ps1` variables
 - `Invoke-InSandbox` and `Restart-Sandbox` use explicit parameters (low-level utilities called many times)
-- **Interactive UI (wizards, pickers) belongs in thin wrappers, not in module functions.** Module functions are pure automation - they accept a fully populated `$Config` and execute without prompting. This keeps the module importable and scriptable for CI or custom automation. The wrapper is responsible for gathering user input before calling the module function.
+- **Interactive UI belongs in thin wrappers, not in module functions.** Module functions
+  accept a fully populated `$Config` and execute without prompting, keeping the module
+  scriptable for CI.
 
 **Thin wrapper template** (all root scripts follow this pattern):
 
@@ -99,36 +130,60 @@ Import-Module "$PSScriptRoot\ClaudeSandbox\ClaudeSandbox.psd1" -Force
 | `$Config + $WorkflowName`       | `Set-SandboxWorkflow` | Config for distro/user/paths, explicit name for the workflow to deploy |
 | `$Config + $PolicyName`         | `Set-SandboxPolicy`   | Config for distro, explicit name for the policy folder to deploy       |
 
-### Token Replacement Pattern
+### Token Replacement
 
-Workflow scripts use `__TOKEN__` placeholders (e.g., `__PROJECTS_DRVFS__`) that `Set-SandboxWorkflow` and `Install-Sandbox` replace with actual Windows paths before deploying into the sandbox. The `wsl.conf` template uses `__DistroName__` and `__Username__` tokens. This avoids hardcoding Windows paths in shell scripts.
+Workflow scripts use `__TOKEN__` placeholders (e.g., `__PROJECTS_DRVFS__`) that
+`Set-SandboxWorkflow` and `Install-Sandbox` replace with actual Windows paths before
+deploying. The `wsl.conf` template uses `__DistroName__` and `__Username__` tokens.
+This avoids hardcoding Windows paths in shell scripts.
 
 ### Persistence
 
-Claude Code's `.claude` directory is bind-mounted from a Windows folder (`$ClaudePersistenceDir`) via `/etc/fstab` so Claude state, settings, and memory survive distro rebuilds. A symlink `~/.claude.json` -> `~/.claude/.claude.json` ensures Claude's top-level config file is also persisted.
+Claude Code's `.claude` directory is bind-mounted from a Windows folder
+(`$ClaudePersistenceDir`) via `/etc/fstab` so Claude state, settings, and memory
+survive distro rebuilds. A symlink `~/.claude.json -> ~/.claude/.claude.json` ensures
+Claude's top-level config file is also persisted.
 
 ### Profile, Workflow & Policy System
 
-- **Profile** (`ClaudeSandbox/Assets/profiles/*.sh`) - replaces `~/.bashrc` entirely. The default profile sources `~/.bashrc.d/workflow.sh` at the end.
-- **Workflow** (`ClaudeSandbox/Assets/workflows/*.sh`) - deployed to `~/.bashrc.d/workflow.sh`. Contains project management functions and the welcome banner.
-- **Policy** (`ClaudeSandbox/Assets/policies/<name>/`) - each named subfolder contains `settings.json` (Claude Code managed permissions) and `policy.md` (deployed as `/etc/claude-code/CLAUDE.md`). Use `Change-Policy.ps1` to switch between policies.
+- **Profile** (`ClaudeSandbox/Assets/profiles/*.sh`) - replaces `~/.bashrc` entirely.
+  The default profile sources `~/.bashrc.d/workflow.sh`.
+- **Workflow** (`ClaudeSandbox/Assets/workflows/*.sh`) - deployed to
+  `~/.bashrc.d/workflow.sh`. Contains project management functions and the welcome
+  banner.
+- **Policy** (`ClaudeSandbox/Assets/policies/<name>/`) - each subfolder contains
+  `settings.json` (Claude Code managed permissions) and `policy.md` (deployed as
+  `/etc/claude-code/CLAUDE.md`). Three tiers:
+  - `default` - blocks catastrophic disk operations only (`rm -rf /*`, `dd`, `mkfs`). Sandbox opt-in.
+  - `restrictive` - adds curl, wget, git push, package managers. Sandbox opt-in.
+  - `maximum` - same deny rules; `sandbox.enabled = true`.
+
+| Policy      | Deny rules                                                  | allowedDomains | sandbox.enabled |
+| ----------- | ----------------------------------------------------------- | -------------- | --------------- |
+| default     | rm -rf /*, dd, mkfs                                         | No             | Not set         |
+| restrictive | + curl, wget, git push, chmod 777, pip, npm, apt (12 total) | Yes            | Not set         |
+| maximum     | Same 12                                                     | Yes            | true            |
+
+All tiers deploy the PreToolUse credential guard hook.
+Policy files live in `ClaudeSandbox/Assets/policies/<tier>/settings.json` and `policy.md`.
+
+---
 
 ## Key Files
 
-**Root-level scripts** (thin wrappers that import module, load config, call one public function):
+**Root-level scripts** (thin wrappers - import module, load config, call one public function):
 
-| File                           | Calls                                  |
-| ------------------------------ | -------------------------------------- |
-| `Install-ClaudeSandbox.ps1`    | `Install-Sandbox`                      |
-| `Uninstall-ClaudeSandbox.ps1`  | `Uninstall-Sandbox`                    |
-| `Change-Profile.ps1`           | `Set-SandboxProfile`                   |
-| `Change-Workflow.ps1`          | `Set-SandboxWorkflow`                  |
-| `Change-Policy.ps1`            | `Set-SandboxPolicy`                    |
-| `Verify-ClaudeSandbox.ps1`     | `Test-Sandbox`                         |
-| `Update-ClaudeSandbox.ps1`     | `Update-Sandbox`                       |
-| `sandbox-config.ps1`           | Defines `$Config`; dot-sourced by all wrappers |
+| File                          | Calls                                          |
+| ----------------------------- | ---------------------------------------------- |
+| `Install-ClaudeSandbox.ps1`   | `Install-Sandbox`                              |
+| `Uninstall-ClaudeSandbox.ps1` | `Uninstall-Sandbox`                            |
+| `Change-Profile.ps1`          | `Set-SandboxProfile`                           |
+| `Change-Workflow.ps1`         | `Set-SandboxWorkflow`                          |
+| `Change-Policy.ps1`           | `Set-SandboxPolicy`                            |
+| `Verify-ClaudeSandbox.ps1`    | `Test-Sandbox`                                 |
+| `sandbox-config.ps1`          | Defines `$Config`; dot-sourced by all wrappers |
 
-**Module - Public functions** (`ClaudeSandbox/Public/`):
+**Public functions** (`ClaudeSandbox/Public/`):
 
 | Function                 | Role                                                                                                                                            |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -140,11 +195,10 @@ Claude Code's `.claude` directory is bind-mounted from a Windows folder (`$Claud
 | `Remove-TerminalProfile` | Removes Windows Terminal profile entry                                                                                                          |
 | `Invoke-InSandbox`       | Executes a bash command inside the WSL distro (default user: root)                                                                              |
 | `Restart-Sandbox`        | Terminates distro and waits for restart                                                                                                         |
-| `Set-SandboxPolicy`       | Deploys a named managed policy (settings.json + policy.md) from `Assets/policies/<name>/`                                                      |
-| `Test-Sandbox`            | Verifies installation and security posture                                                                                                     |
-| `Update-Sandbox`          | Updates packages and re-deploys profile/workflow, then verifies                                                                                 |
+| `Set-SandboxPolicy`      | Deploys a named managed policy (settings.json + policy.md) from `Assets/policies/<name>/`                                                      |
+| `Test-Sandbox`           | Verifies installation and security posture                                                                                                      |
 
-**Module - Private helpers** (`ClaudeSandbox/Private/`):
+**Private helpers** (`ClaudeSandbox/Private/`):
 
 | Function               | Role                                                            |
 | ---------------------- | --------------------------------------------------------------- |
@@ -158,7 +212,7 @@ Claude Code's `.claude` directory is bind-mounted from a Windows folder (`$Claud
 | `Write-Ok`             | Green success message                                           |
 | `Write-Step`           | Blue step heading                                               |
 
-**Module - Assets** (`ClaudeSandbox/Assets/`):
+**Assets** (`ClaudeSandbox/Assets/`):
 
 | File                                  | Role                                                                                                        |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -166,95 +220,106 @@ Claude Code's `.claude` directory is bind-mounted from a Windows folder (`$Claud
 | `profiles/default.sh`                 | Standard Debian bashrc that sources `~/.bashrc.d/workflow.sh`                                               |
 | `profiles/pretty.sh`                  | Enhanced bashrc with colored prompt and archive extractor utility                                           |
 | `workflows/default.sh`                | Bash functions (`index-projects`, `mount-project`, `switch-project`) with tab completion and welcome banner |
-| `policies/default/settings.json`      | Default managed permissions deployed to `/etc/claude-code/managed-settings.json`                            |
-| `policies/default/policy.md`          | Default managed policy deployed to `/etc/claude-code/CLAUDE.md`                                             |
-| `policies/restrictive/settings.json`  | Stricter permissions: adds deny rules for git push, chmod 777, pip/npm/apt install                          |
-| `policies/restrictive/policy.md`      | Stricter policy text matching the restrictive settings                                                       |
+| `policies/default/settings.json`      | Permissive tier: blocks catastrophic disk operations only                                                    |
+| `policies/default/policy.md`          | Policy text for default tier                                                                                 |
+| `policies/restrictive/settings.json`  | Restrictive tier: adds curl/wget deny rules                                                                  |
+| `policies/restrictive/policy.md`      | Policy text for restrictive tier                                                                             |
+| `policies/maximum/settings.json`      | Maximum tier: enforces sandbox, blocks package managers and git push                                         |
+| `policies/maximum/policy.md`          | Policy text for maximum tier                                                                                 |
 
-**Documentation:**
+**Documentation** (`docs/`):
 
-| File                                | Role                                                                                |
-| ----------------------------------- | ----------------------------------------------------------------------------------- |
-| `docs/about.md`                     | Plain-English explanation of what the sandbox is and who it is for                  |
-| `docs/threat-model.md`              | Full STRIDE threat model with accepted risks and planned mitigations                |
-| `docs/setup-commands.md`            | Step-by-step manual setup guide (no installer)                                      |
-| `docs/safe-usage.md`                | User-facing guide to using Claude safely inside the sandbox                         |
-| `docs/security-posture.md`          | Security coverage summary with gap list                                             |
-| `plans/security-posture-details.md` | Detailed security analysis: controls in place, gaps with severity, additional risks |
-| `docs/decisions/README.md`          | ADR index with links to all architecture decision records                           |
-| `docs/decisions/ADR-001..005`       | Architecture Decision Records (WSL2, iptables, sudo, persistence, curl-pipe-bash)   |
+| File                     | Role                                                                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `about.md`               | Plain-English explanation of what the sandbox is and who it is for                                                                    |
+| `threat-model.md`        | What we defend against and why: STRIDE analysis, trust boundary diagram, accepted risks with justifications, reasoning behind controls |
+| `setup-commands.md`      | Step-by-step manual setup guide (no installer)                                                                                        |
+| `safe-usage.md`          | User-facing guide to using Claude safely inside the sandbox                                                                           |
+| `security-posture.md`    | Operational reference: what controls exist and are they working? Controls matrix with check codes, Supported / Partial / Not Supported |
+| `security-research.md`   | Research notes: blocked controls, WSL2 limitations, feasibility findings                                                              |
+| `decisions/README.md`    | ADR index                                                                                                                             |
+| `decisions/ADR-001..005` | Architecture Decision Records (WSL2, iptables, sudo, persistence, curl-pipe-bash)                                                     |
+
+---
 
 ## Verification Check Codes
 
-Every installer step and security setting that `Test-Sandbox` verifies is annotated with a `# [X-NNN]` comment in the source. This creates a traceable link between implementation and verification.
+Every installer step and security setting that `Test-Sandbox` verifies is annotated
+with a `# [X-NNN]` comment in the source. When adding new checks: assign the next code
+in sequence, add the check to `Test-Sandbox`, and annotate the source line.
 
-**Annotated files:**
+### Security Domains
 
-- `Install-Sandbox.ps1` - installation and security setup annotations
-- `wsl.conf` - security settings annotated inline
-- `profiles/default.sh` and `profiles/pretty.sh` - umask and history annotations
-- `workflows/default.sh` - project name validation annotation
-- `Set-SandboxProfile.ps1` - profile deployment annotation
-- `Set-SandboxWorkflow.ps1` - workflow deployment annotation
-- `Set-SandboxPolicy.ps1` - managed settings and policy deployment annotations
+Eight canonical domains classify every control and check code.
+Use these names verbatim everywhere.
 
-When adding new checks: assign the next code in sequence, add the check to `Test-Sandbox`, and annotate the source line that produces the checked state.
+| Domain               | Scope                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| Host Isolation       | WSL2 boundary, Windows interop, automount, PATH, GPU passthrough, outbound network         |
+| Filesystem           | Mount configuration, fstab entries, project mount modes, path validation, persistence      |
+| User & Privilege     | User identity, sudo, passwords, umask, session timeout, file permission checks             |
+| Process Containment  | systemd, bubblewrap namespaces, resource limits, MAC enforcement                           |
+| Application Layer    | Claude permission modes, managed settings, hooks, command blocklists, per-project policies |
+| Audit & Logging      | Git trail, bash history, system logging, runtime detection tools                           |
+| Deployment Integrity | Token replacement, image pinning, install integrity, line endings, package verification    |
+| Admin Operations     | Installer elevation, post-install checks, update mechanism, uninstall, temp cleanup        |
 
-**Never claim a control is implemented without both:** a `# [X-NNN]` annotation on the source line that produces the verified state, AND a corresponding check in `Test-Sandbox.ps1`. Documentation that describes a control as "Supported" without both of these does not count as implemented.
+### Code Index
 
-**Check code reference:**
+| Code      | Domain               | Check                                                                          |
+| --------- | -------------------- | ------------------------------------------------------------------------------ |
+| `I-001`   | Admin Operations     | Distro registered in WSL                                                       |
+| `I-002`   | User & Privilege     | User exists and is non-root                                                    |
+| `I-003`   | User & Privilege     | User in sudo group                                                             |
+| `I-004.N` | Deployment Integrity | Required package N installed (one per package)                                 |
+| `I-005`   | Host Isolation       | wsl.conf exists                                                                |
+| `I-006`   | Admin Operations     | .bashrc deployed                                                               |
+| `I-007`   | Admin Operations     | Workflow script deployed                                                       |
+| `I-008`   | Filesystem           | .claude persistence directory exists                                           |
+| `I-009`   | Filesystem           | .claude mount configured in fstab                                              |
+| `I-010`   | Filesystem           | .claude.json symlink exists                                                    |
+| `I-011`   | Filesystem           | Projects directory exists                                                      |
+| `I-012`   | Application Layer    | Claude Code installed (warn-only)                                              |
+| `I-013`   | Application Layer    | Managed settings deployed (allowManagedPermissionRulesOnly unverified — see ADR-009) |
+| `I-014`   | Application Layer    | Managed policy deployed                                                        |
+| `I-015`   | Application Layer    | PreToolUse credential guard hook deployed                                      |
+| `I-015.N` | Application Layer    | One sub-check per fixture in Tests/Hooks/ (blocked-* expects exit 2, allowed-* expects exit 0) |
+| `S-001`   | Host Isolation       | Windows interop disabled                                                       |
+| `S-002`   | Host Isolation       | Windows PATH excluded                                                          |
+| `S-003`   | Host Isolation       | Automount disabled                                                             |
+| `S-004`   | Host Isolation       | protectBinfmt enabled                                                          |
+| `S-005`   | Process Containment  | systemd enabled                                                                |
+| `S-006`   | User & Privilege     | Default user is non-root                                                       |
+| `S-007`   | User & Privilege     | Sudo is password-gated (no NOPASSWD)                                           |
+| `S-008`   | User & Privilege     | Sudo password feedback enabled (warn-only)                                     |
+| `S-009`   | Process Containment  | Unprivileged user namespaces enabled                                           |
+| `S-010`   | Filesystem           | fstab mount has umask=022                                                      |
+| `S-011`   | Filesystem           | fstab mount has metadata flag                                                  |
+| `S-012`   | Filesystem           | Project name validation rejects path traversal                                 |
+| `S-013`   | User & Privilege     | Password changed from default (warn-only)                                      |
+| `S-014`   | Host Isolation       | GPU setting matches config                                                     |
+| `S-015`   | User & Privilege     | wsl.conf owned by root, not world-writable                                     |
+| `S-016`   | User & Privilege     | sudoers.d/pwfeedback has correct permissions (0440)                            |
+| `S-017`   | User & Privilege     | umask 022 enforced in profile                                                  |
+| `S-018`   | Audit & Logging      | History timestamps enabled (HISTTIMEFORMAT)                                    |
+| `S-019`   | Filesystem           | fstab-only mounts enabled (mountFsTab = true)                                  |
+| `S-020`   | User & Privilege     | Session timeout configured (when SessionTimeout > 0)                           |
+| `S-021`   | Application Layer    | Managed settings deny catastrophic commands                                    |
+| `S-022`   | Deployment Integrity | Distro image is digest-pinned (warn-only)                                      |
 
-| Code      | Category     | Check                                                |
-| --------- | ------------ | ---------------------------------------------------- |
-| `I-001`   | Installation | Distro registered in WSL                             |
-| `I-002`   | Installation | User exists and is non-root                          |
-| `I-003`   | Installation | User in sudo group                                   |
-| `I-004.N` | Installation | Required package N installed (one per package)       |
-| `I-005`   | Installation | wsl.conf exists                                      |
-| `I-006`   | Installation | .bashrc deployed                                     |
-| `I-007`   | Installation | Workflow script deployed                             |
-| `I-008`   | Installation | .claude persistence directory exists                 |
-| `I-009`   | Installation | .claude mount configured in fstab                    |
-| `I-010`   | Installation | .claude.json symlink exists                          |
-| `I-011`   | Installation | Projects directory exists                            |
-| `I-012`   | Installation | Claude Code installed (warn-only)                    |
-| `I-013`   | Installation | Managed settings deployed                            |
-| `I-014`   | Installation | Managed policy deployed                              |
-| `S-001`   | Security     | Windows interop disabled                             |
-| `S-002`   | Security     | Windows PATH excluded                                |
-| `S-003`   | Security     | Automount disabled                                   |
-| `S-004`   | Security     | protectBinfmt enabled                                |
-| `S-005`   | Security     | systemd enabled                                      |
-| `S-006`   | Security     | Default user is non-root                             |
-| `S-007`   | Security     | Sudo is password-gated (no NOPASSWD)                 |
-| `S-008`   | Security     | Sudo password feedback enabled (warn-only)           |
-| `S-009`   | Security     | Unprivileged user namespaces enabled                 |
-| `S-010`   | Security     | fstab mount has umask=022                            |
-| `S-011`   | Security     | fstab mount has metadata flag                        |
-| `S-012`   | Security     | Project name validation rejects path traversal       |
-| `S-013`   | Security     | Password changed from default (warn-only)            |
-| `S-014`   | Security     | GPU setting matches config                           |
-| `S-015`   | Security     | wsl.conf owned by root, not world-writable           |
-| `S-016`   | Security     | sudoers.d/pwfeedback has correct permissions (0440)  |
-| `S-017`   | Security     | umask 022 enforced in profile                        |
-| `S-018`   | Security     | History timestamps enabled (HISTTIMEFORMAT)          |
-| `S-019`   | Security     | fstab-only mounts enabled (mountFsTab = true)        |
-| `S-020`   | Security     | Session timeout configured (when SessionTimeout > 0) |
-| `S-021`   | Security     | Managed settings deny curl and wget                  |
+---
 
-## Configuration
+## Maintenance
 
-Edit `sandbox-config.ps1` to configure the sandbox. It defines a `$Config` hashtable that all wrapper scripts consume directly -- adding a new parameter only requires changing this one file. The install wizard prompts for key values interactively, using the config as defaults. Key config keys:
-
-- `ProjectsPath` - Windows root for projects (mounted into Linux on demand)
-- `ClaudePersistenceDir` - Windows folder where `.claude` state is persisted across distro rebuilds
-- `UserPassword` - Default sandbox user password. The install wizard prompts securely and overrides this value. Used as-is only in `-NonInteractive` mode.
-- `ContainerRuntime` - `podman` or `docker`
-- `Packages` - Extra apt packages to install in the distro
-- `Username` / `DistroName` / `InstallDir` - Distro identity and install location. Update `InstallDir` if you change `DistroName`.
-- `TerminalProfileName` - Display name shown in the Windows Terminal dropdown
-- `TerminalProfileIcon` - Optional icon path for the Windows Terminal profile
-- `TerminalProfileColorScheme` - Optional color scheme name (must exist in Windows Terminal settings)
-- `TerminalProfileBackground` - Optional hex background color for the Windows Terminal profile
-- `GpuEnabled` - Enable GPU passthrough (default: `$false`)
-- `SessionTimeout` - Idle shell timeout in seconds (default: `0` = disabled). Uses `readonly TMOUT` via `/etc/profile.d/`.
+- After any change to security controls or documentation, verify:
+  - Controls marked Supported in `security-posture.md` without a check code are verified by design or by inspection rather than automated test.
+  - No Not Supported row has one.
+  - Section 8 of `threat-model.md` contains only unimplemented controls.
+  - `security-research.md` has no duplicate sections or stale "planned" claims for controls now deployed.
+  - The check code table here matches `Test-Sandbox.ps1` exactly.
+- Do not rewrite content for style. Only correct factual errors, stale claims, and
+  structural noise. If in doubt, flag it rather than change it.
+- After each task, state what files changed, what check codes were added or modified,
+  and whether documentation was updated.
+- If you find a bug or inconsistency outside the assigned task, fix it and note it -
+  do not silently skip it.

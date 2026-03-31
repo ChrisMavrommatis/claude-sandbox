@@ -1,64 +1,73 @@
-# Security Guide
+# Safe Usage Guide
 
-How to use Claude safely inside the sandbox.
-
----
+How to use Claude Code effectively inside the distro.
 
 ## Mount control
 
-Projects are not mounted automatically. You choose what Claude can access:
+Projects are not mounted automatically — you choose what Claude can access:
 
 ```bash
-mount-project my-app --ro    # read-only
-mount-project my-app --rw    # read-write
-unmount-project my-app       # remove access
+mount-project my-app --ro    # read-only: reviews, explanations, Q&A
+mount-project my-app --rw    # read-write: active development
+unmount-project my-app       # revoke access when done
 ```
 
-Use `--ro` when Claude only needs to read (reviews, explanations). Project names are validated to prevent path traversal.
-
----
+Use `--ro` by default.
+Only switch to `--rw` when Claude needs to write files.
+Project names are validated to prevent path traversal.
 
 ## Permission modes
 
-Control Claude's autonomy per session:
+Control how much Claude acts autonomously per session:
 
 ```bash
-claude --permission-mode plan          # read and plan only, no changes
-claude --permission-mode acceptEdits   # edit files freely, ask before commands
-claude --dangerously-skip-permissions  # no prompts (safe here - sandbox limits reach)
+claude --permission-mode plan         # read and plan only, no changes
+claude --permission-mode acceptEdits  # edit files freely, ask before running commands
+claude --dangerously-skip-permissions # no prompts (safe here — distro limits reach)
 ```
 
-Start with `plan` for unfamiliar projects.
+Start with `plan` for unfamiliar projects or whenever you are unsure of scope.
 
----
+## Claude sandbox mode
 
-## Sandbox mode
-
-Enable filesystem and network isolation for bash commands:
+Enable additional isolation for bash commands:
 
 ```bash
 /sandbox
 ```
 
-This uses bubblewrap to restrict what commands can access. Network requests are filtered by domain. Combined with the WSL2 isolation, this provides defense-in-depth against prompt injection and malicious dependencies.
-
----
+This uses bubblewrap to restrict what commands can reach, and filters outbound network requests by domain (subject to the active policy tier).
+Combined with WSL2 isolation, this provides defense-in-depth against prompt injection and malicious dependencies.
+Claude sandbox mode is opt-in — it is not active by default.
 
 ## Worktree isolation
 
-For large or risky changes, use a separate branch:
+For large or risky changes, isolate work using a native Claude Code worktree:
 
 ```bash
 claude -w
 ```
 
-Main stays untouched until you merge. Discard the branch if the result isn't what you wanted.
+This creates an isolated git worktree so `main` stays untouched until you merge.
+Discard the worktree if the result is not what you wanted.
 
----
+## Policy tiers
+
+The distro ships with three managed policy tiers that control what Claude can do at the system level.
+Switch tiers by editing `sandbox-config.ps1` and re-running the installer:
+
+| Tier        | What changes vs default                                      |
+|-------------|--------------------------------------------------------------|
+| default     | Blocks `rm -rf /*`, `dd`, `mkfs` only                        |
+| restrictive | Also blocks `curl`, `wget`, package installs, `git push`     |
+| maximum     | All restrictive blocks plus stricter network filtering       |
+
+All tiers are enforced via `/etc/claude-code/managed-settings.json` (verified by S-021).
 
 ## Project rules
 
-Create a `CLAUDE.md` in any project root. Claude reads it at the start of every session:
+Create a `CLAUDE.md` in any project root. 
+Claude reads it at the start of every session in that directory:
 
 ```markdown
 ## Rules
@@ -67,13 +76,11 @@ Create a `CLAUDE.md` in any project root. Claude reads it at the start of every 
 - Always use feature branches, never commit to main
 ```
 
-The sandbox also deploys a managed policy at `/etc/claude-code/CLAUDE.md` that applies to all sessions automatically. Like project `CLAUDE.md` files, this is a behavioral guardrail - it relies on Claude Code following the instructions, not on the operating system enforcing them. For hard blocks, use deny rules (see below).
+The distro also deploys a managed policy at `/etc/claude-code/CLAUDE.md` that applies to all sessions automatically.
+This is a **behavioural guardrail** - it relies on Claude following the instructions, not on the OS enforcing them. 
+For hard blocks, use deny rules (see below).
 
----
-
-## Deny lists
-
-The sandbox's managed settings already block `curl`, `wget`, `rm -rf /*`, `dd`, and `mkfs` for Claude (enforced via `/etc/claude-code/managed-settings.json`, verified by S-021).
+## Deny rules
 
 Add your own permanent blocks in `~/.claude/settings.json`:
 
@@ -88,49 +95,43 @@ Add your own permanent blocks in `~/.claude/settings.json`:
 }
 ```
 
-Per-project: place the same file in `<project>/.claude/settings.json`.
+For per-project rules, place the same file at `<project>/.claude/settings.json`.
 
----
+## Reviewing changes
 
-## Review changes
-
-Before moving on:
+Before moving on from any Claude session:
 
 ```bash
-git diff              # see what changed
-git log --oneline -5  # see what was committed
+git diff              # what changed but wasn't committed
+git log --oneline -5  # what was committed
 ```
 
-Undo the last commit: `git reset HEAD~1`.
-
----
+Undo the last commit without losing the changes: `git reset HEAD~1`.
 
 ## Secret management
 
-Claude can read any file it has access to. Handle secrets carefully:
+Claude can read any file it has access to. Treat credentials accordingly:
 
-- **Never commit secrets to git.** Use `.gitignore` for `.env` files.
-- **Never store secrets in `~/.claude`** (the persistence mount). Claude has full read access to this directory across all sessions, including future ones.
-- **Environment variables are visible to Claude.** Any secret you `export` in a shell session is readable by Claude and every child process it spawns. This is acceptable for short-lived secrets but not for long-term credentials.
-- **Mount read-only when secrets exist.** If a project contains `.env` files or credentials, mount it with `--ro` and manage secrets outside the mount path.
-- **Use `pass` or `age` for encrypted storage.** These tools decrypt on demand and don't leave plaintext on disk.
+- **Never commit secrets to git**: Add `.env` to `.gitignore`.
+- **Never store secrets in `~/.claude`**: The persistence mount is fully readable by  Claude across all sessions, including future ones.
+- **Exported environment variables are visible to Claude**: And every child process it spawns.
+Acceptable for short-lived tokens; not for long-term credentials.
+- **Mount read-only when secrets are present**: If a project contains `.env` files or credentials, use `--ro`.
+Manage the secrets outside the mounted path.
 
----
+## Backup
 
-## Backup strategy
+Claude's persistent state lives in the `$ClaudePersistenceDir` folder on your Windows host (default: `D:\.claude`). 
+It contains your login session, settings, memory, and conversation history.
 
-Claude's persistent state lives in the `$ClaudePersistenceDir` folder on your Windows host (default: `D:\.claude`). This contains your Claude login, settings, memory, and conversation history.
-
-**What to back up:** The entire `$ClaudePersistenceDir` folder.
-
-**How:**
+**Back up the entire folder:**
 
 ```powershell
-robocopy D:\.claude D:\Backups\.claude /MIR
+robocopy $ClaudePersistenceDir "$ClaudePersistenceDir-backup" /MIR
 ```
 
 Or include it in your existing Windows backup job.
 
-**Recovery:** Restore the folder, then run `.\Update-ClaudeSandbox.ps1` to verify everything is wired up correctly.
+**Recovery**: Restore the folder, then run `.\Verify-ClaudeSandbox.ps1` to confirm the sandbox is wired up correctly.
 
-**What you lose without a backup:** Re-authentication with Claude, all conversation memory, custom settings and permission rules.
+**What you lose without a backup**: Claude re-authentication, all conversation memory, custom settings and deny rules.

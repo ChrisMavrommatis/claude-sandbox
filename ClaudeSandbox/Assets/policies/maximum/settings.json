@@ -17,6 +17,7 @@
     ]
   },
   "sandbox": {
+    "enabled": true,
     "network": {
       "allowedDomains": [
         "deb.debian.org",
