@@ -38,9 +38,15 @@ function Install-Sandbox {
     # -- Step 1: WSL ----------------------------------------------------------------------
     Write-Step "Step 1: WSL2 setup"
 
-    Write-Info "Installing WSL2 (if not already installed)..."
-    wsl --install --no-distribution 2>$null | Out-Null
-    Assert-ExitCode "Failed to install WSL2. Ensure WSL is enabled and try again."
+    Write-Info "Checking WSL2..."
+    wsl --list 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Info "WSL2 not ready - installing..."
+        wsl --install --no-distribution
+        Assert-ExitCode "Failed to install WSL2. Ensure WSL is enabled and try again."
+        Write-Host "  WSL2 installed. A reboot may be required before continuing." -ForegroundColor Yellow
+        Write-Host "  If the installer fails at the import step, reboot and run it again." -ForegroundColor Yellow
+    }
     wsl --set-default-version 2 | Out-Null
     Assert-ExitCode "Failed to set WSL default version to 2."
 
@@ -58,7 +64,7 @@ function Install-Sandbox {
     Write-Ok "Container created with ID $ContainerId"
 
     Write-Info "Exporting to tarball..."
-    & $ContainerRuntime export $ContainerId --output=$TarPath
+    & $ContainerRuntime export $ContainerId "--output=$TarPath"
     if (-not (Test-Path $TarPath)) {
         Write-Host "  ERROR: Failed to export container to tarball." -ForegroundColor Red
         exit 1
@@ -76,8 +82,13 @@ function Install-Sandbox {
 
     # Imports distro into WSL [I-001]
     Write-Info "Importing '$DistroImage' as WSL distro '$DistroName'..."
+    if ((Test-Path "$InstallDir") -and (Get-ChildItem "$InstallDir" | Select-Object -First 1)) {
+        Write-Host "  ERROR: Install directory '$InstallDir' already exists and is not empty." -ForegroundColor Red
+        Write-Host "         Remove it or set a different InstallDir in sandbox-config.ps1." -ForegroundColor Red
+        exit 1
+    }
     Initialize-Directory $InstallDir
-    wsl --import $DistroName $InstallDir $TarPath --version 2 | Out-Null
+    wsl --import "$DistroName" "$InstallDir" "$TarPath" --version 2 | Out-Null
     Assert-ExitCode "Failed to import distro '$DistroName'. Check that the distro doesn't already exist (wsl --list)."
     Write-Ok "Distro imported to $InstallDir"
 
@@ -88,7 +99,7 @@ function Install-Sandbox {
 
     # Install required packages [I-004.1 through I-004.N]
     Write-Info "Installing packages..."
-    Invoke-InSandbox $DistroName "apt-get update && apt-get upgrade -y && apt-get install -y $($Packages -join ' ')"
+    Invoke-InSandbox $DistroName "export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get upgrade -y && apt-get install -y $($Packages -join ' ')"
     Write-Ok "Packages installed"
 
     # Create user and add to sudo group [I-002, I-003, S-007]
@@ -127,8 +138,8 @@ function Install-Sandbox {
 
     # Configure persistence mount in fstab [I-009, S-010, S-011]
     Write-Info "Configuring persistence directory mount in fstab..."
-    $userUid = (wsl -d $DistroName --user $Username -- id -u).Trim()
-    $userGid = (wsl -d $DistroName --user $Username -- id -g).Trim()
+    $userUid = (wsl -d "$DistroName" --user "$Username" -- id -u).Trim()
+    $userGid = (wsl -d "$DistroName" --user "$Username" -- id -g).Trim()
     $fstabLine = "$ClaudePersistenceDir /home/$Username/.claude drvfs uid=$userUid,gid=$userGid,umask=022,metadata 0 0"
     Write-FileToDistro $DistroName "/tmp/claude-fstab.tmp" $fstabLine
     Invoke-InSandbox $DistroName "cat /tmp/claude-fstab.tmp >> /etc/fstab && rm /tmp/claude-fstab.tmp"
@@ -202,7 +213,7 @@ function Install-Sandbox {
 
     # -- Step 6: Cleanup ------------------------------------------------------------------
     Write-Step "Step 6: Cleaning up temporary files..."
-    Remove-Item $tempDir -Recurse -ErrorAction SilentlyContinue
+    Remove-Item "$tempDir" -Recurse -ErrorAction SilentlyContinue
     Write-Ok "Step 6 Complete: Temporary files cleaned up"
 
     # -- Step 7: Verify installation -----------------------------------------------------

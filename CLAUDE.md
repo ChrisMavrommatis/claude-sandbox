@@ -30,6 +30,24 @@ Coding, documentation, and markdown conventions that apply to all work in this r
   line. When adding new installer steps or security settings, add a corresponding check
   to `Test-Sandbox` with the next available code and annotate the source. When modifying
   existing checked code, preserve the annotation.
+- **PowerShell path quoting**: Always wrap path and identifier variables in double quotes
+  when passing them to external commands (wsl, podman, docker) or PowerShell cmdlets
+  (Test-Path, New-Item, Remove-Item, Get-ChildItem, etc.). Windows paths can contain
+  spaces and unquoted variables in external command calls can silently shift argument
+  positions. Use `"$var"` for simple variables and `"$($expr)"` for property access or
+  expressions:
+
+  ```powershell
+  # External commands - quote all variable arguments
+  wsl --import "$DistroName" "$InstallDir" "$TarPath" --version 2
+  wsl -d "$DistroName" --user "$User" -- bash -c "$Command"
+
+  # Cmdlets - quote path variables
+  Test-Path "$InstallDir"
+  Remove-Item "$TarPath" -Recurse
+  New-Item -ItemType Directory -Path "$path"
+  ```
+
 - **Write-FileToDistro staging**: Never write directly to `/etc/` or any root-owned path
   via `Write-FileToDistro`. Always stage to `/tmp/` first:
 
@@ -214,18 +232,21 @@ Policy files live in `ClaudeSandbox/Assets/policies/<tier>/settings.json` and `p
 
 **Assets** (`ClaudeSandbox/Assets/`):
 
-| File                                  | Role                                                                                                        |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `wsl.conf`                            | WSL2 config template with `__DistroName__` and `__Username__` tokens                                        |
-| `profiles/default.sh`                 | Standard Debian bashrc that sources `~/.bashrc.d/workflow.sh`                                               |
-| `profiles/pretty.sh`                  | Enhanced bashrc with colored prompt and archive extractor utility                                           |
-| `workflows/default.sh`                | Bash functions (`index-projects`, `mount-project`, `switch-project`) with tab completion and welcome banner |
-| `policies/default/settings.json`      | Permissive tier: blocks catastrophic disk operations only                                                    |
-| `policies/default/policy.md`          | Policy text for default tier                                                                                 |
-| `policies/restrictive/settings.json`  | Restrictive tier: adds curl/wget deny rules                                                                  |
-| `policies/restrictive/policy.md`      | Policy text for restrictive tier                                                                             |
-| `policies/maximum/settings.json`      | Maximum tier: enforces sandbox, blocks package managers and git push                                         |
-| `policies/maximum/policy.md`          | Policy text for maximum tier                                                                                 |
+| File                                   | Role                                                                                                        |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `wsl.conf`                             | WSL2 config template with `__DistroName__` and `__Username__` tokens                                        |
+| `session-timeout.sh`                   | Session timeout template; `__SESSION_TIMEOUT__` token replaced at install time                              |
+| `.wslconfig.template`                  | WSL2 resource limits reference (memory, CPU, swap); user copies to host manually                            |
+| `hooks/pretooluse-credential-guard.sh` | PreToolUse hook that blocks credential file reads; deployed by `Set-SandboxPolicy`                          |
+| `profiles/default.sh`                  | Standard Debian bashrc that sources `~/.bashrc.d/workflow.sh`                                               |
+| `profiles/pretty.sh`                   | Enhanced bashrc with colored prompt and archive extractor utility                                           |
+| `workflows/default.sh`                 | Bash functions (`index-projects`, `mount-project`, `switch-project`) with tab completion and welcome banner |
+| `policies/default/settings.json`       | Permissive tier: blocks catastrophic disk operations only                                                    |
+| `policies/default/policy.md`           | Policy text for default tier                                                                                 |
+| `policies/restrictive/settings.json`   | Restrictive tier: adds curl/wget deny rules                                                                  |
+| `policies/restrictive/policy.md`       | Policy text for restrictive tier                                                                             |
+| `policies/maximum/settings.json`       | Maximum tier: enforces sandbox, blocks package managers and git push                                         |
+| `policies/maximum/policy.md`           | Policy text for maximum tier                                                                                 |
 
 **Documentation** (`docs/`):
 
@@ -238,7 +259,7 @@ Policy files live in `ClaudeSandbox/Assets/policies/<tier>/settings.json` and `p
 | `security-posture.md`    | Operational reference: what controls exist and are they working? Controls matrix with check codes, Supported / Partial / Not Supported |
 | `security-research.md`   | Research notes: blocked controls, WSL2 limitations, feasibility findings                                                              |
 | `decisions/README.md`    | ADR index                                                                                                                             |
-| `decisions/ADR-001..005` | Architecture Decision Records (WSL2, iptables, sudo, persistence, curl-pipe-bash)                                                     |
+| `decisions/ADR-001..009` | Architecture Decision Records (WSL2, iptables, sudo, persistence, curl-pipe-bash, audit tooling, process containment, image digest pinning, managed settings enforcement scope) |
 
 ---
 

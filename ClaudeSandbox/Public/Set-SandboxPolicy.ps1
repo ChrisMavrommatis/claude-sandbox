@@ -12,7 +12,7 @@ function Set-SandboxPolicy {
     $policiesDir = Get-AssetPath "policies"
     $policyDir   = Join-Path $policiesDir $PolicyName
 
-    if (-not (Test-Path $policyDir)) {
+    if (-not (Test-Path "$policyDir")) {
         Write-Error "Policy '$PolicyName' not found in '$policiesDir'."
         exit 1
     }
@@ -21,7 +21,7 @@ function Set-SandboxPolicy {
     $policyPath   = Join-Path $policyDir "policy.md"
 
     foreach ($f in @($settingsPath, $policyPath)) {
-        if (-not (Test-Path $f)) {
+        if (-not (Test-Path "$f")) {
             Write-Error "Policy '$PolicyName' is missing file: $(Split-Path $f -Leaf)"
             exit 1
         }

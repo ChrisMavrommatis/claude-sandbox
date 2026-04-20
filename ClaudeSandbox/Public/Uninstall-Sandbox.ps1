@@ -23,14 +23,14 @@ function Uninstall-Sandbox {
 
     # -- Terminate distro -----------------------------------------------------------------
     Write-Step "Terminating distro..."
-    wsl --terminate $DistroName 2>$null | Out-Null
+    wsl --terminate "$DistroName" 2>$null | Out-Null
     Write-Ok "Distro terminated"
 
     # -- Unregister distro ----------------------------------------------------------------
     Write-Step "Unregistering distro..."
     $registered = wsl -l --quiet 2>$null | Where-Object { $_.Trim() -eq $DistroName }
     if ($registered) {
-        wsl --unregister $DistroName --quiet 2>$null
+        wsl --unregister "$DistroName" --quiet 2>$null
         Assert-ExitCode "Failed to unregister distro '$DistroName'."
         Write-Ok "Distro '$DistroName' unregistered"
     } else {
@@ -39,10 +39,10 @@ function Uninstall-Sandbox {
 
     # -- Optionally remove install directory -----------------------------------------------
     Write-Step "Install directory: $InstallDir"
-    if ($RemoveInstallDir -and (Test-Path $InstallDir)) {
-        Remove-Item $InstallDir -Recurse -Force -ErrorAction Stop
+    if ($RemoveInstallDir -and (Test-Path "$InstallDir")) {
+        Remove-Item "$InstallDir" -Recurse -Force -ErrorAction Stop
         Write-Ok "Install directory removed"
-    } elseif (Test-Path $InstallDir) {
+    } elseif (Test-Path "$InstallDir") {
         Write-Info "Install directory kept (pass -RemoveInstallDir to remove)"
     } else {
         Write-Info "Install directory not found - skipping"

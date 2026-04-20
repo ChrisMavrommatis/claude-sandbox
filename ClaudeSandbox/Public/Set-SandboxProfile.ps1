@@ -13,7 +13,7 @@ function Set-SandboxProfile {
 
     $profilesDir = Get-AssetPath "profiles"
     $profilePath = Join-Path $profilesDir $ProfileName
-    if (-not (Test-Path $profilePath)) {
+    if (-not (Test-Path "$profilePath")) {
         Write-Error "Profile '$ProfileName' not found in '$profilesDir'."
         exit 1
     }

@@ -3,6 +3,6 @@ function Restart-Sandbox {
         [Parameter(Mandatory=$true)]
         [string]$DistroName
     )
-    wsl --terminate $DistroName | Out-Null
+    wsl --terminate "$DistroName" | Out-Null
     Start-Sleep -Seconds 5
 }

@@ -14,7 +14,7 @@ function Set-SandboxWorkflow {
 
     $workflowsDir = Get-AssetPath "workflows"
     $workflowPath = Join-Path $workflowsDir $WorkflowName
-    if (-not (Test-Path $workflowPath)) {
+    if (-not (Test-Path "$workflowPath")) {
         Write-Error "Workflow '$WorkflowName' not found in '$workflowsDir'."
         exit 1
     }
