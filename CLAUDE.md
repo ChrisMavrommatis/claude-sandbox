@@ -213,7 +213,7 @@ Policy files live in `ClaudeSandbox/Assets/policies/<tier>/settings.json` and `p
 | `Remove-TerminalProfile` | Removes Windows Terminal profile entry                                                                                                          |
 | `Invoke-InSandbox`       | Executes a bash command inside the WSL distro (default user: root)                                                                              |
 | `Restart-Sandbox`        | Terminates distro and waits for restart                                                                                                         |
-| `Set-SandboxPolicy`      | Deploys a named managed policy (settings.json + policy.md) from `Assets/policies/<name>/`                                                      |
+| `Set-SandboxPolicy`      | Deploys a named managed policy (settings.json + policy.md) from `Assets/policies/<name>/`                                                       |
 | `Test-Sandbox`           | Verifies installation and security posture                                                                                                      |
 
 **Private helpers** (`ClaudeSandbox/Private/`):
@@ -241,24 +241,24 @@ Policy files live in `ClaudeSandbox/Assets/policies/<tier>/settings.json` and `p
 | `profiles/default.sh`                  | Standard Debian bashrc that sources `~/.bashrc.d/workflow.sh`                                               |
 | `profiles/pretty.sh`                   | Enhanced bashrc with colored prompt and archive extractor utility                                           |
 | `workflows/default.sh`                 | Bash functions (`index-projects`, `mount-project`, `switch-project`) with tab completion and welcome banner |
-| `policies/default/settings.json`       | Permissive tier: blocks catastrophic disk operations only                                                    |
-| `policies/default/policy.md`           | Policy text for default tier                                                                                 |
-| `policies/restrictive/settings.json`   | Restrictive tier: adds curl/wget deny rules                                                                  |
-| `policies/restrictive/policy.md`       | Policy text for restrictive tier                                                                             |
-| `policies/maximum/settings.json`       | Maximum tier: enforces sandbox, blocks package managers and git push                                         |
-| `policies/maximum/policy.md`           | Policy text for maximum tier                                                                                 |
+| `policies/default/settings.json`       | Permissive tier: blocks catastrophic disk operations only                                                   |
+| `policies/default/policy.md`           | Policy text for default tier                                                                                |
+| `policies/restrictive/settings.json`   | Restrictive tier: adds curl/wget deny rules                                                                 |
+| `policies/restrictive/policy.md`       | Policy text for restrictive tier                                                                            |
+| `policies/maximum/settings.json`       | Maximum tier: enforces sandbox, blocks package managers and git push                                        |
+| `policies/maximum/policy.md`           | Policy text for maximum tier                                                                                |
 
 **Documentation** (`docs/`):
 
-| File                     | Role                                                                                                                                  |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `about.md`               | Plain-English explanation of what the sandbox is and who it is for                                                                    |
+| File                     | Role                                                                                                                                   |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `about.md`               | Plain-English explanation of what the sandbox is and who it is for                                                                     |
 | `threat-model.md`        | What we defend against and why: STRIDE analysis, trust boundary diagram, accepted risks with justifications, reasoning behind controls |
-| `setup-commands.md`      | Step-by-step manual setup guide (no installer)                                                                                        |
-| `safe-usage.md`          | User-facing guide to using Claude safely inside the sandbox                                                                           |
+| `setup-commands.md`      | Step-by-step manual setup guide (no installer)                                                                                         |
+| `safe-usage.md`          | User-facing guide to using Claude safely inside the sandbox                                                                            |
 | `security-posture.md`    | Operational reference: what controls exist and are they working? Controls matrix with check codes, Supported / Partial / Not Supported |
-| `security-research.md`   | Research notes: blocked controls, WSL2 limitations, feasibility findings                                                              |
-| `decisions/README.md`    | ADR index                                                                                                                             |
+| `security-research.md`   | Research notes: blocked controls, WSL2 limitations, feasibility findings                                                               |
+| `decisions/README.md`    | ADR index                                                                                                                              |
 | `decisions/ADR-001..009` | Architecture Decision Records (WSL2, iptables, sudo, persistence, curl-pipe-bash, audit tooling, process containment, image digest pinning, managed settings enforcement scope) |
 
 ---
@@ -274,8 +274,8 @@ in sequence, add the check to `Test-Sandbox`, and annotate the source line.
 Eight canonical domains classify every control and check code.
 Use these names verbatim everywhere.
 
-| Domain               | Scope                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------- |
+| Domain               | Scope                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------ |
 | Host Isolation       | WSL2 boundary, Windows interop, automount, PATH, GPU passthrough, outbound network         |
 | Filesystem           | Mount configuration, fstab entries, project mount modes, path validation, persistence      |
 | User & Privilege     | User identity, sudo, passwords, umask, session timeout, file permission checks             |
