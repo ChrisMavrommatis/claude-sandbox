@@ -28,6 +28,8 @@ $Config = @{
         "bubblewrap"    # Required for Claude Code /sandbox
         "socat"         # Required for Claude Code network features
         "fzf"           # Interactive project picker for switch-project
+        "systemd"       # wsl.conf sets systemd=true; the base image does not ship it
+        "systemd-sysv"  # provides /sbin/init, which WSL needs to boot systemd
     )
 
     # -- Distro settings (unlikely to need changing) --------------------------------

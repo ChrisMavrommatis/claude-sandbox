@@ -12,8 +12,10 @@
 > [decision records](docs/decisions/) explain what this is defending against and why each choice was made.
 > Those do not go stale the way the scripts do.
 >
-> `Test-Sandbox` runs 36 checks - 22 security, 14 install. **Nothing runs them in CI**, so a passing count
-> is something you get by running it, not something this page can promise you.
+> `Test-Sandbox` runs 22 security checks and 15 installation checks, two of which expand at runtime - one
+> per required package, one per credential-guard fixture - so a typical run reports 45 results.
+> **Nothing runs them in CI**, so a passing count is something you get by running it, not something this
+> page can promise you.
 
 A one-command setup that creates an isolated Linux environment on Windows (via WSL2) purpose-built for [Claude Code](https://claude.ai/code).
 Your Windows projects stay on Windows - the sandbox mounts them on demand so Claude can work on them without touching the rest of your system.

@@ -271,12 +271,20 @@ function Test-Sandbox {
         Write-CheckResult "S-004" "FAIL" "protectBinfmt not enabled"
     }
 
-    # S-005: systemd enabled
-    if ($wslConfText -match 'systemd\s*=\s*true') {
-        Write-CheckResult "S-005" "PASS" "systemd enabled"
+    # S-005: systemd enabled in wsl.conf AND actually booted.
+    # Checking the setting alone passes on a distro where systemd was never installed: WSL then
+    # warns "access(/sbin/init) failed" on every command and nothing is running as PID 1.
+    if ($wslConfText -notmatch 'systemd\s*=\s*true') {
+        Write-CheckResult "S-005" "FAIL" "systemd not enabled in wsl.conf"
+    }
+    elseif (-not (Test-InSandbox "test -e /sbin/init")) {
+        Write-CheckResult "S-005" "FAIL" "systemd enabled in wsl.conf but not installed (/sbin/init missing) -- apt-get install systemd systemd-sysv, then wsl --shutdown"
+    }
+    elseif ((Get-FromSandbox "ps -p 1 -o comm=").Trim() -ne "systemd") {
+        Write-CheckResult "S-005" "WARN" "systemd installed but not PID 1 -- run 'wsl --shutdown' and reopen the distro"
     }
     else {
-        Write-CheckResult "S-005" "FAIL" "systemd not enabled"
+        Write-CheckResult "S-005" "PASS" "systemd enabled and running as PID 1"
     }
 
     # S-006: Default user is non-root
