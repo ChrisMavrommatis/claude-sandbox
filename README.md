@@ -1,9 +1,19 @@
 # Claude Sandbox
 
-![Security Checks](https://img.shields.io/badge/security_checks-37_passing-brightgreen)
-![Verified](https://img.shields.io/badge/posture-verified-blue)
 ![WSL2](https://img.shields.io/badge/platform-WSL2-0078D4?logo=windows)
 ![PowerShell](https://img.shields.io/badge/shell-PowerShell-5391FE?logo=powershell)
+
+> **Unmaintained as of August 2026.** This is Windows-only and I no longer work on Windows, so I cannot
+> test changes. It worked when I last ran it, in April 2026, against the versions of WSL2, Podman and
+> Claude Code current then. It pins an external world it does not control - a Debian image digest, Podman
+> for Windows, and Claude Code's own installer - so assume parts of it have drifted.
+>
+> The reasoning is the part I would still stand behind: the [threat model](docs/threat-model.md) and the
+> [decision records](docs/decisions/) explain what this is defending against and why each choice was made.
+> Those do not go stale the way the scripts do.
+>
+> `Test-Sandbox` runs 36 checks - 22 security, 14 install. **Nothing runs them in CI**, so a passing count
+> is something you get by running it, not something this page can promise you.
 
 A one-command setup that creates an isolated Linux environment on Windows (via WSL2) purpose-built for [Claude Code](https://claude.ai/code).
 Your Windows projects stay on Windows - the sandbox mounts them on demand so Claude can work on them without touching the rest of your system.

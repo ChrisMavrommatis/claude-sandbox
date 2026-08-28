@@ -52,7 +52,7 @@ Claude cannot reach the host filesystem except through explicitly configured pro
 |-------|-----------------------------------------------------------------------|
 | I-013 | Managed settings deployed (`/etc/claude-code/managed-settings.json`) |
 | I-014 | Managed policy deployed (`/etc/claude-code/CLAUDE.md`)               |
-| I-015 | PreToolUse credential guard hook                                      |
+| I-015 | PreToolUse credential guard hook — deployed by the installer, **not verified by `Test-Sandbox`** |
 | S-021 | Catastrophic commands denied (`rm -rf`, `dd`, `mkfs`) in all tiers   |
 | -     | Network and package install blocked in restrictive/maximum tiers      |
 
